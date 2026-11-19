@@ -1,0 +1,22 @@
+{
+  "settings": {
+    "min_discount": 80,
+    "suspicious_discount": 90,
+    "min_list_price": 1000,
+    "pages_per_source": 3,
+    "max_alerts_per_run": 15,
+    "only_sold_by_amazon": true,
+    "affiliate_tag": "",
+    "channel_footer": "📢 اشترك في القناة عشان توصلك أقوى العروض أول بأول"
+  },
+  "sources": [
+    "https://www.amazon.eg/s?k=laptop",
+    "https://www.amazon.eg/s?k=mobile+phone",
+    "https://www.amazon.eg/s?k=smart+tv",
+    "https://www.amazon.eg/s?k=headphones",
+    "https://www.amazon.eg/s?k=watch",
+    "https://www.amazon.eg/s?k=air+fryer",
+    "https://www.amazon.eg/s?k=perfume",
+    "https://www.amazon.eg/s?k=playstation"
+  ]
+}
