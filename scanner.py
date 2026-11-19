@@ -67,14 +67,45 @@ def parse_cards(html):
     return items
 
 
-def fetch_page(url):
-    r = requests.get(url, headers=HEADERS, timeout=30)
-    if r.status_code != 200:
-        raise RuntimeError(f"HTTP {r.status_code}")
-    low = r.text.lower()
-    if "captcha" in low and "api-services-support" in low:
-        raise RuntimeError("CAPTCHA (blocked)")
-    return r.text
+SESSION = requests.Session()
+SESSION.headers.update(
+    {
+        **HEADERS,
+        "Accept-Encoding": "gzip, deflate",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Cache-Control": "max-age=0",
+    }
+)
+
+
+def fetch_page(url, retries=4):
+    """GET with retries: Amazon often answers 503/429 to bursts of requests."""
+    last = None
+    for attempt in range(retries):
+        try:
+            r = SESSION.get(url, timeout=30)
+        except requests.RequestException as e:
+            last = f"network error: {e}"
+        else:
+            if r.status_code == 200:
+                low = r.text.lower()
+                if "captcha" in low and "api-services-support" in low:
+                    last = "CAPTCHA (blocked)"
+                else:
+                    return r.text
+            else:
+                last = f"HTTP {r.status_code}"
+                if r.status_code not in (429, 500, 502, 503, 504):
+                    break  # not worth retrying (404 etc.)
+        if attempt < retries - 1:
+            wait = (2 ** attempt) * 8 + random.uniform(2, 8)  # ~10s, ~22s, ~40s
+            print(f"   retry {attempt + 1} after {wait:.0f}s ({last})")
+            time.sleep(wait)
+    raise RuntimeError(last)
 
 
 AMAZON_NAME = r"(amazon|أمازون|امازون)"
@@ -203,7 +234,12 @@ def main():
                 time.sleep(random.uniform(4, 8))
                 continue
             cards = parse_cards(html)
-            print(f"[ok] {url} -> {len(cards)} items")
+            with_list = [(p, l) for _, _, p, l, _ in cards if l and l > p]
+            best = max((round((1 - p / l) * 100) for p, l in with_list), default=0)
+            print(
+                f"[ok] {url} -> {len(cards)} items, "
+                f"{len(with_list)} with discount, best {best}%"
+            )
             for asin, title, price, list_price, image in cards:
                 scanned += 1
                 discount = is_deal(price, list_price, s)
