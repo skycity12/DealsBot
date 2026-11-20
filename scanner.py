@@ -227,8 +227,6 @@ def build_caption(title, price, list_price, discount, s, tags):
         "",
         "⏱️ السعر وقت النشر وممكن يتغير في أي لحظة",
     ]
-    if s.get("affiliate_tag"):
-        lines.append("ℹ️ ممكن نحصل على عمولة بسيطة من المشتريات من غير ما تدفع أكتر")
     if s.get("channel_footer"):
         lines += ["", html_escape(s["channel_footer"], quote=False)]
     return "\n".join(lines)
