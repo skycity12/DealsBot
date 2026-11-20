@@ -7,6 +7,7 @@ import random
 import re
 import sys
 import time
+import traceback
 from pathlib import Path
 
 import requests
@@ -263,6 +264,7 @@ def download_image(url):
             r = requests.get(u, headers=HEADERS, timeout=20)
             if r.ok and r.content:
                 return Image.open(BytesIO(r.content)).convert("RGB")
+            print(f"[!] image HTTP {r.status_code} for {u}")
         except Exception as e:
             print(f"[!] image download failed: {e}")
     return None
@@ -354,10 +356,14 @@ def make_card_bytes(image_url, discount, price, list_price, s):
     try:
         img = download_image(image_url)
         if img is None:
+            print(f"[card] FAILED: could not download product image ({image_url})")
             return None
-        return make_card(img, discount, price, list_price, s.get("channel_handle", ""), s)
+        data = make_card(img, discount, price, list_price, s.get("channel_handle", ""), s)
+        print(f"[card] ok ({len(data) // 1024} KB)")
+        return data
     except Exception as e:
-        print(f"[!] card generation failed: {e}")
+        last = traceback.format_exc().strip().splitlines()[-3:]
+        print(f"[card] FAILED: {type(e).__name__}: {e} | {' / '.join(x.strip() for x in last)}")
         return None
 
 
@@ -373,14 +379,16 @@ def _post(method, payload, files=None):
 
 
 def send_deal(caption, image_url, card, link, handle):
-    """Post to the channel (and optionally a private chat): card image + buy button."""
+    """Post to the channel (and optionally a private chat).
+    Returns how the FIRST target was posted: 'card', 'url-photo', 'text',
+    'failed' or 'none' (nothing configured)."""
     if not TOKEN:
         print("[!] Telegram not configured. Would post:\n" + caption)
-        return
+        return "none"
     targets = [t for t in (CHANNEL_ID, CHAT_ID) if t]
     if not targets:
         print("[!] No Telegram target set. Would post:\n" + caption)
-        return
+        return "none"
 
     rows = [[{"text": "🛒 اشتري الآن", "url": link}]]
     if handle:
@@ -392,23 +400,71 @@ def send_deal(caption, image_url, card, link, handle):
         rows.append([{"text": "📤 شارك القناة مع صحابك", "url": share}])
     markup = {"inline_keyboard": rows}
 
+    first_mode = None
     for chat in targets:
-        sent = False
+        mode = "failed"
         base = {"chat_id": chat, "caption": caption, "parse_mode": "HTML"}
-        if card:
-            sent = _post(
-                "sendPhoto",
-                {**base, "reply_markup": json.dumps(markup)},
-                files={"photo": ("deal.jpg", card, "image/jpeg")},
-            )
-        if not sent and image_url:
-            sent = _post("sendPhoto", {**base, "photo": image_url, "reply_markup": markup})
-        if not sent:
-            _post(
-                "sendMessage",
-                {"chat_id": chat, "text": caption, "parse_mode": "HTML", "reply_markup": markup},
-            )
+        if card and _post(
+            "sendPhoto",
+            {**base, "reply_markup": json.dumps(markup)},
+            files={"photo": ("deal.jpg", card, "image/jpeg")},
+        ):
+            mode = "card"
+        elif image_url and _post(
+            "sendPhoto", {**base, "photo": image_url, "reply_markup": markup}
+        ):
+            mode = "url-photo"
+        elif _post(
+            "sendMessage",
+            {"chat_id": chat, "text": caption, "parse_mode": "HTML", "reply_markup": markup},
+        ):
+            mode = "text"
+        first_mode = first_mode or mode
         time.sleep(1.5)  # stay under Telegram's rate limits
+    return first_mode
+
+
+# ---------- memory of what was already posted ----------
+SCRIPT_VERSION = "2026-11-20-v3 (card images + dedupe)"
+
+
+def load_seen():
+    """seen.json = {"asins": {asin: {"price", "t"}}, "fps": {fingerprint: t}}"""
+    now = time.time()
+    raw = {}
+    if SEEN_FILE.exists():
+        try:
+            raw = json.loads(SEEN_FILE.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"[!] seen.json unreadable ({e}); starting empty")
+    if "asins" not in raw:  # migrate old flat format {asin: price}
+        raw = {
+            "asins": {
+                k: {"price": v, "t": now}
+                for k, v in raw.items()
+                if isinstance(v, (int, float))
+            },
+            "fps": {},
+        }
+    raw.setdefault("fps", {})
+    cutoff = now - 60 * 86400  # forget things older than 60 days
+    raw["asins"] = {k: v for k, v in raw["asins"].items() if v.get("t", 0) > cutoff}
+    raw["fps"] = {k: t for k, t in raw["fps"].items() if t > cutoff}
+    return raw
+
+
+def save_seen(seen):
+    SEEN_FILE.write_text(json.dumps(seen, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def fingerprint(title, price):
+    """Same product sold as several variants/ASINs gets the same fingerprint."""
+    base = re.sub(r"[^a-z0-9؀-ۿ]+", " ", title.lower()).split()
+    return f"{' '.join(base[:8])}|{round(price, -1):.0f}"
+
+
+def is_recent(t, days):
+    return (time.time() - t) < days * 86400
 
 
 def paged(url, page):
@@ -428,13 +484,22 @@ def main():
         "max_alerts_per_run": 15,
         "only_sold_by_amazon": True,
         "delay_between_posts": [30, 40],
+        "repost_after_days": 14,   # never repost the same product before this...
+        "repost_min_drop": 0.10,   # ...unless its price fell by at least this much
         **config.get("settings", {}),
     }
+    print(f"scanner version: {SCRIPT_VERSION}")
+    print(
+        f"settings: min_discount={s['min_discount']} max_alerts={s['max_alerts_per_run']} "
+        f"handle={s.get('channel_handle') or '(none)'} logo={'yes' if LOGO_FILE.exists() else 'MISSING'} "
+        f"channel={'set' if CHANNEL_ID else 'NOT SET'}"
+    )
     seller_cache = {}
     title_cache = {}
-    seen = json.loads(SEEN_FILE.read_text(encoding="utf-8")) if SEEN_FILE.exists() else {}
+    seen = load_seen()
+    print(f"loaded memory: {len(seen['asins'])} products already posted")
 
-    alerts, scanned, failures, pages_tried = 0, 0, 0, 0
+    alerts, scanned, failures, pages_tried, post_failures = 0, 0, 0, 0, 0
     for source in config["sources"]:
         for page in range(1, s["pages_per_source"] + 1):
             url = paged(source, page)
@@ -458,10 +523,14 @@ def main():
                 discount = is_deal(price, list_price, s)
                 if discount is None:
                     continue
-                prev = seen.get(asin)
-                if prev is not None and price >= prev:
-                    continue  # already alerted at this price or lower
-                if alerts >= s["max_alerts_per_run"]:
+                prev = seen["asins"].get(asin)
+                if (
+                    prev
+                    and is_recent(prev["t"], s["repost_after_days"])
+                    and price > prev["price"] * (1 - s["repost_min_drop"])
+                ):
+                    continue  # already posted; no real new price drop
+                if alerts >= s["max_alerts_per_run"] or post_failures >= 3:
                     continue
                 if s["only_sold_by_amazon"]:
                     if asin not in seller_cache:
@@ -479,23 +548,34 @@ def main():
                         print(f"[skip] {asin}: not sold by Amazon (or unknown)")
                         continue
                     title = title_cache.get(asin, title)
+                fp = fingerprint(title, price)
+                if fp in seen["fps"] and is_recent(seen["fps"][fp], s["repost_after_days"]):
+                    print(f"[dup] {asin}: same product/variant already posted -> skipped")
+                    continue
                 caption = build_caption(
                     title, price, list_price, discount, s, tags_for(source, s)
                 )
                 card = make_card_bytes(image, discount, price, list_price, s)
-                send_deal(
+                mode = send_deal(
                     caption, image, card, product_link(asin, s), s.get("channel_handle", "")
                 )
-                seen[asin] = price
+                print(f"[post] {asin} mode={mode} | {title[:60]}")
+                if mode in ("failed", "none"):
+                    post_failures += 1  # not remembered, will retry next run
+                    continue
+                now = time.time()
+                seen["asins"][asin] = {"price": price, "t": now}
+                seen["fps"][fp] = now
+                save_seen(seen)  # remember immediately, even if the run dies later
                 alerts += 1
                 # space posts out so the channel isn't flooded all at once
                 lo, hi = s["delay_between_posts"]
                 wait = random.uniform(lo, hi)
-                print(f"   posted {asin}, waiting {wait:.0f}s before the next one")
+                print(f"   waiting {wait:.0f}s before the next one")
                 time.sleep(wait)
             time.sleep(random.uniform(4, 9))
 
-    SEEN_FILE.write_text(json.dumps(seen, ensure_ascii=False, indent=1), encoding="utf-8")
+    save_seen(seen)
     print(f"Scanned {scanned} items, sent {alerts} alerts, {failures} failed pages")
     if pages_tried and failures == pages_tried:
         sys.exit(1)
