@@ -39,7 +39,7 @@ jobs:
           if git diff --staged --quiet; then echo "memory unchanged"; exit 0; fi
           git commit -m "update memory of posted deals"
           for i in 1 2 3; do
-            if git pull --rebase origin main && git push origin HEAD:main; then
+            if git pull --rebase -X theirs origin main && git push origin HEAD:main; then
               echo "memory saved to repository"; exit 0
             fi
             echo "push failed, retry $i"; sleep 5
