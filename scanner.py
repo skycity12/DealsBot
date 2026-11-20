@@ -17,6 +17,10 @@ CONFIG_FILE = BASE / "scanner_config.json"
 SEEN_FILE = BASE / "seen.json"
 
 from html import escape as html_escape
+from io import BytesIO
+from urllib.parse import parse_qs, quote, urlparse
+
+from PIL import Image, ImageDraw, ImageFont
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")          # optional private copy
@@ -163,35 +167,213 @@ def product_link(asin, s):
     return f"{link}?tag={tag}" if tag else link
 
 
-def build_caption(title, price, list_price, discount, link, s):
-    t = html_escape(title if len(title) <= 130 else title[:127].rstrip() + "...")
-    lines = [f"🔥 <b>{t}</b>", ""]
+DEFAULT_TAGS = {
+    "laptop": "#لابتوب #كمبيوتر",
+    "mobile": "#موبايل #هواتف",
+    "phone": "#موبايل #هواتف",
+    "tv": "#شاشات #تلفزيون",
+    "headphones": "#سماعات",
+    "watch": "#ساعات",
+    "air fryer": "#اير_فراير #اجهزة_منزلية",
+    "perfume": "#عطور",
+    "playstation": "#بلايستيشن #جيمنج",
+    "shoes": "#احذية",
+    "clothes": "#ملابس",
+    "kitchen": "#مطبخ",
+    "toys": "#العاب",
+    "beauty": "#جمال #عناية",
+    "home appliances": "#اجهزة_منزلية",
+}
+
+
+def tags_for(source, s):
+    """Hashtags based on the search keyword of the source URL."""
+    kw = parse_qs(urlparse(source).query).get("k", [""])[0].lower()
+    tags = {**DEFAULT_TAGS, **s.get("hashtags", {})}
+    for key, val in tags.items():
+        if key in kw:
+            return f"{val} #عروض_أمازون"
+    return "#عروض_أمازون"
+
+
+def headline(discount, s):
     if discount >= s["suspicious_discount"]:
-        lines += ["⚠️ <b>خصم غير عادي - ممكن يكون خطأ في السعر، اطلبه بسرعة</b>", ""]
-    lines += [
-        f"❌ السعر قبل: <s>{list_price:,.0f} جنيه</s>",
-        f"✅ السعر دلوقتي: <b>{price:,.0f} جنيه</b>",
-        f"📉 خصم <b>{discount:.0f}%</b>",
+        return (
+            "🚨🚨 <b>خصم غير طبيعي - ممكن يكون خطأ في السعر!</b> 🚨🚨\n"
+            "اطلبه بسرعة قبل ما يتصلح"
+        )
+    if discount >= 75:
+        return "🔥🔥🔥 <b>عرض نااار</b> 🔥🔥🔥"
+    if discount >= 60:
+        return "🔥🔥 <b>خصم قوي</b> 🔥🔥"
+    return "💰 <b>عرض حلو</b>"
+
+
+def build_caption(title, price, list_price, discount, s, tags):
+    t = html_escape(title if len(title) <= 130 else title[:127].rstrip() + "...", quote=False)
+    saved = list_price - price
+    lines = [
+        headline(discount, s),
+        "",
+        f"🛍 <b>{t}</b>",
+        "",
+        f"❌ كان: <s>{list_price:,.0f} جنيه</s>",
+        f"✅ بقى: <b>{price:,.0f} جنيه</b>",
+        f"📉 خصم <b>{discount:.0f}%</b>  ·  💸 وفّرت <b>{saved:,.0f} جنيه</b>",
         "🏪 البائع: أمازون",
         "",
-        f'🛒 <a href="{link}">اشتري من هنا</a>',
+        tags,
+        "",
+        "⏱️ السعر وقت النشر وممكن يتغير في أي لحظة",
     ]
+    if s.get("affiliate_tag"):
+        lines.append("ℹ️ ممكن نحصل على عمولة بسيطة من المشتريات من غير ما تدفع أكتر")
     if s.get("channel_footer"):
-        lines += ["", html_escape(s["channel_footer"])]
+        lines += ["", html_escape(s["channel_footer"], quote=False)]
     return "\n".join(lines)
 
 
-def _post(method, payload):
-    resp = requests.post(
-        f"https://api.telegram.org/bot{TOKEN}/{method}", json=payload, timeout=30
-    )
+# ---------- product image card ----------
+FONT_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/google-fonts/Poppins-Bold.ttf",
+]
+
+
+def _font(size):
+    for p in FONT_CANDIDATES:
+        try:
+            return ImageFont.truetype(p, size)
+        except OSError:
+            continue
+    return ImageFont.load_default(size)
+
+
+def big_image_url(url):
+    """Amazon thumbnails carry a size suffix (._AC_UY218_.); ask for a big one."""
+    return re.sub(r"\._[A-Za-z0-9_,%-]+_\.", "._AC_SL1000_.", url)
+
+
+def download_image(url):
+    if not url:
+        return None
+    for u in dict.fromkeys((big_image_url(url), url)):
+        try:
+            r = requests.get(u, headers=HEADERS, timeout=20)
+            if r.ok and r.content:
+                return Image.open(BytesIO(r.content)).convert("RGB")
+        except Exception as e:
+            print(f"[!] image download failed: {e}")
+    return None
+
+
+# Brand palette (matches the fisherman logo)
+SEA_DEEP, SEA, SKY = "#0A5F99", "#2FB2E6", "#7FD0FF"
+SUN, ORANGE, GREEN, PURPLE, RED, NAVY = "#FFD23F", "#FF9F1C", "#2ECC71", "#8E5BFF", "#E63946", "#0F1B2D"
+SOFT = "#CFE9FA"
+LOGO_FILE = BASE / "logo.png"
+
+
+def _logo_circle(size):
+    try:
+        lg = Image.open(LOGO_FILE).convert("RGB").resize((size, size), Image.LANCZOS)
+    except Exception:
+        return None
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).ellipse([0, 0, size - 1, size - 1], fill=255)
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    out.paste(lg, (0, 0), mask)
+    return out
+
+
+def _hex(c):
+    return tuple(int(c[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def make_card(product_img, discount, price, list_price, handle, s):
+    """1080x1080 branded card: product photo + big discount badge + prices."""
+    W = H = 1080
+    bg = Image.new("RGB", (W, H), SEA)
+    d = ImageDraw.Draw(bg)
+    top, bot = _hex(SEA), _hex(SEA_DEEP)
+    for y in range(H):  # sea-blue vertical gradient
+        t = y / H
+        d.line([(0, y), (W, y)], fill=tuple(int(top[i] + (bot[i] - top[i]) * t) for i in range(3)))
+
+    panel = (50, 50, 1030, 680)
+    d.rounded_rectangle(panel, radius=40, fill="white")
+    img = product_img.copy()
+    img.thumbnail((panel[2] - panel[0] - 70, panel[3] - panel[1] - 70))
+    bg.paste(img, ((panel[0] + panel[2] - img.width) // 2, (panel[1] + panel[3] - img.height) // 2))
+
+    # discount badge (colour by strength)
+    if discount >= s["suspicious_discount"]:
+        color = PURPLE
+    elif discount >= 75:
+        color = RED
+    else:
+        color = ORANGE
+    cx, cy, r = 175, 175, 125
+    d.ellipse([cx - r - 10, cy - r - 10, cx + r + 10, cy + r + 10], fill="white")
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=color)
+    txt = f"-{discount:.0f}%"
+    d.text((cx, cy), txt, font=_font(70 if len(txt) <= 4 else 56), fill="white", anchor="mm")
+
+    # prices
+    d.text((60, 715), "NOW", font=_font(34), fill=SOFT, anchor="la")
+    d.text((60, 755), f"{price:,.0f} EGP", font=_font(112), fill=SUN, anchor="la")
+    old = f"{list_price:,.0f} EGP"
+    f_old = _font(50)
+    d.text((60, 890), old, font=f_old, fill=SOFT, anchor="la")
+    b = d.textbbox((60, 890), old, font=f_old, anchor="la")
+    ym = (b[1] + b[3]) // 2
+    d.line([(b[0] - 6, ym), (b[2] + 6, ym)], fill=RED, width=6)
+
+    save = f"SAVE {list_price - price:,.0f} EGP"
+    f = _font(42)
+    sb = d.textbbox((0, 0), save, font=f, anchor="la")
+    w, h = sb[2] - sb[0], sb[3] - sb[1]
+    x1, y1 = 1020 - w - 60, 885
+    d.rounded_rectangle([x1, y1, 1020, y1 + h + 36], radius=30, fill=GREEN)
+    d.text(((x1 + 1020) // 2, y1 + (h + 36) // 2), save, font=f, fill=NAVY, anchor="mm")
+
+    # footer: logo + handle
+    lg = _logo_circle(88)
+    if lg:
+        bg.paste(lg, (60, 972), lg)
+    if handle:
+        d.text((170 if lg else 60, 1016), "@" + handle.lstrip("@"), font=_font(40), fill=SOFT, anchor="lm")
+
+    out = BytesIO()
+    bg.save(out, "JPEG", quality=90)
+    return out.getvalue()
+
+
+def make_card_bytes(image_url, discount, price, list_price, s):
+    try:
+        img = download_image(image_url)
+        if img is None:
+            return None
+        return make_card(img, discount, price, list_price, s.get("channel_handle", ""), s)
+    except Exception as e:
+        print(f"[!] card generation failed: {e}")
+        return None
+
+
+def _post(method, payload, files=None):
+    url = f"https://api.telegram.org/bot{TOKEN}/{method}"
+    if files:
+        resp = requests.post(url, data=payload, files=files, timeout=60)
+    else:
+        resp = requests.post(url, json=payload, timeout=30)
     if not resp.ok:
         print(f"[!] Telegram {method} error:", resp.text[:300])
     return resp.ok
 
 
-def send_deal(caption, image):
-    """Post to the channel (and optionally a private chat) with the product image."""
+def send_deal(caption, image_url, card, link, handle):
+    """Post to the channel (and optionally a private chat): card image + buy button."""
     if not TOKEN:
         print("[!] Telegram not configured. Would post:\n" + caption)
         return
@@ -199,17 +381,32 @@ def send_deal(caption, image):
     if not targets:
         print("[!] No Telegram target set. Would post:\n" + caption)
         return
+
+    rows = [[{"text": "🛒 اشتري الآن", "url": link}]]
+    if handle:
+        h = handle.lstrip("@")
+        share = (
+            f"https://t.me/share/url?url=https://t.me/{h}&text="
+            + quote("أقوى عروض أمازون مصر 🔥")
+        )
+        rows.append([{"text": "📤 شارك القناة مع صحابك", "url": share}])
+    markup = {"inline_keyboard": rows}
+
     for chat in targets:
         sent = False
-        if image:
+        base = {"chat_id": chat, "caption": caption, "parse_mode": "HTML"}
+        if card:
             sent = _post(
                 "sendPhoto",
-                {"chat_id": chat, "photo": image, "caption": caption, "parse_mode": "HTML"},
+                {**base, "reply_markup": json.dumps(markup)},
+                files={"photo": ("deal.jpg", card, "image/jpeg")},
             )
+        if not sent and image_url:
+            sent = _post("sendPhoto", {**base, "photo": image_url, "reply_markup": markup})
         if not sent:
             _post(
                 "sendMessage",
-                {"chat_id": chat, "text": caption, "parse_mode": "HTML"},
+                {"chat_id": chat, "text": caption, "parse_mode": "HTML", "reply_markup": markup},
             )
         time.sleep(1.5)  # stay under Telegram's rate limits
 
@@ -230,6 +427,7 @@ def main():
         "pages_per_source": 3,
         "max_alerts_per_run": 15,
         "only_sold_by_amazon": True,
+        "delay_between_posts": [30, 40],
         **config.get("settings", {}),
     }
     seller_cache = {}
@@ -269,9 +467,9 @@ def main():
                     if asin not in seller_cache:
                         try:
                             time.sleep(random.uniform(3, 6))
-                            page = fetch_page(f"{DOMAIN}/dp/{asin}")
-                            seller_cache[asin] = seller_is_amazon(page)
-                            full = page_title(page)
+                            prod_html = fetch_page(f"{DOMAIN}/dp/{asin}")
+                            seller_cache[asin] = seller_is_amazon(prod_html)
+                            full = page_title(prod_html)
                             if full:
                                 title_cache[asin] = full
                         except Exception as e:
@@ -282,11 +480,19 @@ def main():
                         continue
                     title = title_cache.get(asin, title)
                 caption = build_caption(
-                    title, price, list_price, discount, product_link(asin, s), s
+                    title, price, list_price, discount, s, tags_for(source, s)
                 )
-                send_deal(caption, image)
+                card = make_card_bytes(image, discount, price, list_price, s)
+                send_deal(
+                    caption, image, card, product_link(asin, s), s.get("channel_handle", "")
+                )
                 seen[asin] = price
                 alerts += 1
+                # space posts out so the channel isn't flooded all at once
+                lo, hi = s["delay_between_posts"]
+                wait = random.uniform(lo, hi)
+                print(f"   posted {asin}, waiting {wait:.0f}s before the next one")
+                time.sleep(wait)
             time.sleep(random.uniform(4, 9))
 
     SEEN_FILE.write_text(json.dumps(seen, ensure_ascii=False, indent=1), encoding="utf-8")

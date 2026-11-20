@@ -6,8 +6,13 @@
     "pages_per_source": 3,
     "max_alerts_per_run": 5,
     "only_sold_by_amazon": true,
+    "delay_between_posts": [
+      30,
+      40
+    ],
     "affiliate_tag": "",
-    "channel_footer": "📢 اشترك في القناة عشان توصلك أقوى العروض أول بأول"
+    "channel_handle": "",
+    "channel_footer": "📢 اشترك في «صيّاد العروض» عشان توصلك أقوى العروض أول بأول"
   },
   "sources": [
     "https://www.amazon.eg/s?k=laptop",
