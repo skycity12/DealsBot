@@ -1,10 +1,10 @@
 {
   "settings": {
-    "min_discount": 60,
+    "min_discount": 45,
     "suspicious_discount": 90,
     "min_list_price": 0,
     "pages_per_source": 3,
-    "max_alerts_per_run": 15,
+    "max_alerts_per_run": 5,
     "only_sold_by_amazon": true,
     "affiliate_tag": "",
     "channel_footer": "📢 اشترك في القناة عشان توصلك أقوى العروض أول بأول"
@@ -17,6 +17,12 @@
     "https://www.amazon.eg/s?k=watch",
     "https://www.amazon.eg/s?k=air+fryer",
     "https://www.amazon.eg/s?k=perfume",
-    "https://www.amazon.eg/s?k=playstation"
+    "https://www.amazon.eg/s?k=playstation",
+    "https://www.amazon.eg/s?k=shoes",
+    "https://www.amazon.eg/s?k=clothes",
+    "https://www.amazon.eg/s?k=kitchen",
+    "https://www.amazon.eg/s?k=toys",
+    "https://www.amazon.eg/s?k=beauty",
+    "https://www.amazon.eg/s?k=home+appliances"
   ]
 }
