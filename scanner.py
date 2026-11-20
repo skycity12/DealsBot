@@ -60,8 +60,16 @@ def parse_cards(html):
         if not price:
             continue
         title_el = card.select_one("h2")
-        title = title_el.get_text(" ", strip=True) if title_el else asin
         img_el = card.select_one("img.s-image") or card.select_one("img")
+        # Amazon's search h2 is sometimes just the brand ("كاسيو"); the image alt
+        # and the h2's aria-label usually hold the full product name. Keep the longest.
+        candidates = []
+        if title_el:
+            candidates.append(title_el.get_text(" ", strip=True))
+            candidates.append((title_el.get("aria-label") or "").strip())
+        if img_el:
+            candidates.append((img_el.get("alt") or "").strip())
+        title = max(candidates, key=len, default="") or asin
         image = img_el.get("src") if img_el else None
         items.append((asin, title, price, list_price, image))
     return items
@@ -133,6 +141,12 @@ def seller_is_amazon(html):
     return bool(re.search(SOLD_BY + r"[^A-Za-z؀-ۿ]{0,6}" + AMAZON_NAME, blob, re.I))
 
 
+def page_title(html):
+    """Full product name from a product page (#productTitle)."""
+    el = BeautifulSoup(html, "html.parser").select_one("#productTitle")
+    return el.get_text(" ", strip=True) if el else None
+
+
 def is_deal(price, list_price, s):
     """Return the discount percentage if this is a crazy deal, else None."""
     if not list_price or list_price <= price:
@@ -150,7 +164,7 @@ def product_link(asin, s):
 
 
 def build_caption(title, price, list_price, discount, link, s):
-    t = html_escape(title[:110])
+    t = html_escape(title if len(title) <= 130 else title[:127].rstrip() + "...")
     lines = [f"🔥 <b>{t}</b>", ""]
     if discount >= s["suspicious_discount"]:
         lines += ["⚠️ <b>خصم غير عادي - ممكن يكون خطأ في السعر، اطلبه بسرعة</b>", ""]
@@ -219,6 +233,7 @@ def main():
         **config.get("settings", {}),
     }
     seller_cache = {}
+    title_cache = {}
     seen = json.loads(SEEN_FILE.read_text(encoding="utf-8")) if SEEN_FILE.exists() else {}
 
     alerts, scanned, failures, pages_tried = 0, 0, 0, 0
@@ -254,15 +269,18 @@ def main():
                     if asin not in seller_cache:
                         try:
                             time.sleep(random.uniform(3, 6))
-                            seller_cache[asin] = seller_is_amazon(
-                                fetch_page(f"{DOMAIN}/dp/{asin}")
-                            )
+                            page = fetch_page(f"{DOMAIN}/dp/{asin}")
+                            seller_cache[asin] = seller_is_amazon(page)
+                            full = page_title(page)
+                            if full:
+                                title_cache[asin] = full
                         except Exception as e:
                             print(f"[x] seller check {asin}: {e}")
                             seller_cache[asin] = None
                     if seller_cache[asin] is not True:
                         print(f"[skip] {asin}: not sold by Amazon (or unknown)")
                         continue
+                    title = title_cache.get(asin, title)
                 caption = build_caption(
                     title, price, list_price, discount, product_link(asin, s), s
                 )
