@@ -1,11 +1,13 @@
 {
   "settings": {
-    "min_discount": 45,
+    "min_discount": 30,
     "suspicious_discount": 90,
     "min_list_price": 0,
     "pages_per_source": 3,
-    "max_alerts_per_run": 5,
-    "only_sold_by_amazon": true,
+    "max_alerts_per_run": 10,
+    "only_sold_by_amazon": false,
+    "require_shipped_by_amazon": true,
+    "max_product_checks": 80,
     "delay_between_posts": [
       30,
       40

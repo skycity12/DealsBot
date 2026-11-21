@@ -146,6 +146,76 @@ def seller_is_amazon(html):
     return bool(re.search(SOLD_BY + r"[^A-Za-z؀-ۿ]{0,6}" + AMAZON_NAME, blob, re.I))
 
 
+SHIPS_FROM = (
+    r"(ships from|shipped by|fulfilled by|يشحن من|الشحن من|يتم الشحن من|"
+    r"تشحن من|شحن من|يتم الشحن بواسطة|الشحن بواسطة|شحن بواسطة)"
+)
+
+
+def _buybox_blob(soup):
+    parts = []
+    for sel in (
+        "#merchantInfoFeature_feature_div",
+        "#merchant-info",
+        "#tabular-buybox",
+        "#shipsFromSoldByInsideBuyBox_feature_div",
+        "#fulfillerInfoFeature_feature_div",
+    ):
+        parts += [el.get_text(" ", strip=True) for el in soup.select(sel)]
+    return re.sub(r"[ً-ْ]", "", " ".join(parts))  # drop Arabic diacritics
+
+
+def _seller_name(soup):
+    """Name of the (third-party) seller, or None if it can't be read."""
+    link = soup.select_one("#sellerProfileTriggerId")
+    if link and link.get_text(strip=True):
+        return link.get_text(" ", strip=True)
+    for row in soup.select("#tabular-buybox .tabular-buybox-container"):
+        label = row.select_one(".tabular-buybox-label")
+        value = row.select_one(".tabular-buybox-text")
+        if label and value and re.search(SOLD_BY, label.get_text(" ", strip=True), re.I):
+            return value.get_text(" ", strip=True) or None
+    return None
+
+
+def fulfillment_info(html):
+    """What the product page says about who SELLS and who SHIPS the item.
+    Returns {"amazon_sold": bool|None, "seller": str|None,
+             "shipped_by_amazon": bool|None}. None = couldn't be determined."""
+    soup = BeautifulSoup(html, "html.parser")
+    amazon_sold = seller_is_amazon(html)
+    blob = _buybox_blob(soup)
+    if amazon_sold is True:
+        shipped = True            # Amazon sells it, so Amazon ships it
+    elif re.search(SHIPS_FROM + r"[^A-Za-z؀-ۿ]{0,6}" + AMAZON_NAME, blob, re.I):
+        shipped = True
+    elif re.search(SHIPS_FROM, blob, re.I):
+        shipped = False           # a "ships from" line exists and it isn't Amazon
+    else:
+        shipped = None            # no shipping info at all -> unknown
+    return {
+        "amazon_sold": amazon_sold,
+        "seller": None if amazon_sold else _seller_name(soup),
+        "shipped_by_amazon": shipped,
+    }
+
+
+def page_price(html):
+    """Current price shown on the product page (None if not readable)."""
+    soup = BeautifulSoup(html, "html.parser")
+    for sel in (
+        ".priceToPay .a-offscreen",
+        "#corePrice_feature_div .priceToPay .a-offscreen",
+        "#corePriceDisplay_desktop_feature_div .priceToPay .a-offscreen",
+    ):
+        el = soup.select_one(sel)
+        if el:
+            p = parse_price(el.get_text())
+            if p:
+                return p
+    return None
+
+
 def page_title(html):
     """Full product name from a product page (#productTitle)."""
     el = BeautifulSoup(html, "html.parser").select_one("#productTitle")
@@ -210,7 +280,20 @@ def headline(discount, s):
     return "💰 <b>عرض حلو</b>"
 
 
-def build_caption(title, price, list_price, discount, s, tags):
+def seller_lines(seller):
+    """Caption lines saying clearly who sells the item. seller=None keeps the
+    old behaviour (sold by Amazon)."""
+    if not seller or seller.get("amazon_sold"):
+        return ["🏪 البائع: أمازون ✅ · 📦 الشحن من أمازون"]
+    name = html_escape(seller.get("seller") or "بائع تاني", quote=False)
+    return [
+        f"🏪 البائع: <b>{name}</b> (مش أمازون)",
+        "📦 الشحن من أمازون",
+        "⚠️ تنبيه: ده مش أمازون اللي بايع القطعة، والسعر القديم من عند البائع وممكن يكون مبالغ فيه",
+    ]
+
+
+def build_caption(title, price, list_price, discount, s, tags, seller=None):
     t = html_escape(title if len(title) <= 130 else title[:127].rstrip() + "...", quote=False)
     saved = list_price - price
     lines = [
@@ -221,7 +304,7 @@ def build_caption(title, price, list_price, discount, s, tags):
         f"❌ كان: <s>{list_price:,.0f} جنيه</s>",
         f"✅ بقى: <b>{price:,.0f} جنيه</b>",
         f"📉 خصم <b>{discount:.0f}%</b>  ·  💸 وفّرت <b>{saved:,.0f} جنيه</b>",
-        "🏪 البائع: أمازون",
+        *seller_lines(seller),
         "",
         tags,
         "",
@@ -423,7 +506,7 @@ def send_deal(caption, image_url, card, link, handle):
 
 
 # ---------- memory of what was already posted ----------
-SCRIPT_VERSION = "2026-11-20-v3 (card images + dedupe)"
+SCRIPT_VERSION = "2026-11-22-v3.1 (30% + shipped-by-Amazon + seller notice)"
 
 
 def load_seen():
@@ -475,12 +558,14 @@ def paged(url, page):
 def main():
     config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
     s = {
-        "min_discount": 80,
+        "min_discount": 30,
         "suspicious_discount": 90,
         "min_list_price": 1000,
         "pages_per_source": 3,
-        "max_alerts_per_run": 15,
-        "only_sold_by_amazon": True,
+        "max_alerts_per_run": 10,
+        "only_sold_by_amazon": False,        # True = Amazon as seller only
+        "require_shipped_by_amazon": True,   # never post items not shipped by Amazon
+        "max_product_checks": 80,            # cap product-page lookups per run
         "delay_between_posts": [30, 40],
         "repost_after_days": 14,   # never repost the same product before this...
         "repost_min_drop": 0.10,   # ...unless its price fell by at least this much
@@ -493,7 +578,9 @@ def main():
         f"channel={'set' if CHANNEL_ID else 'NOT SET'}"
     )
     seller_cache = {}
+    live_cache = {}
     title_cache = {}
+    checks = 0
     seen = load_seen()
     print(f"loaded memory: {len(seen['asins'])} products already posted")
 
@@ -530,30 +617,56 @@ def main():
                     continue  # already posted; no real new price drop
                 if alerts >= s["max_alerts_per_run"] or post_failures >= 3:
                     continue
-                if s["only_sold_by_amazon"]:
+                info = None
+                s_deal = s
+                if s["only_sold_by_amazon"] or s["require_shipped_by_amazon"]:
                     if asin not in seller_cache:
+                        if checks >= s["max_product_checks"]:
+                            continue  # check budget spent; try again next run
+                        checks += 1
                         try:
                             time.sleep(random.uniform(3, 6))
                             prod_html = fetch_page(f"{DOMAIN}/dp/{asin}")
-                            seller_cache[asin] = seller_is_amazon(prod_html)
+                            seller_cache[asin] = fulfillment_info(prod_html)
+                            live_cache[asin] = page_price(prod_html)
                             full = page_title(prod_html)
                             if full:
                                 title_cache[asin] = full
                         except Exception as e:
                             print(f"[x] seller check {asin}: {e}")
                             seller_cache[asin] = None
-                    if seller_cache[asin] is not True:
-                        print(f"[skip] {asin}: not sold by Amazon (or unknown)")
+                    info = seller_cache[asin]
+                    if not info:
+                        print(f"[skip] {asin}: seller/shipping unknown")
+                        continue
+                    if s["only_sold_by_amazon"] and info["amazon_sold"] is not True:
+                        print(f"[skip] {asin}: not sold by Amazon")
+                        continue
+                    if s["require_shipped_by_amazon"] and info["shipped_by_amazon"] is not True:
+                        print(f"[skip] {asin}: not shipped by Amazon (or unknown)")
                         continue
                     title = title_cache.get(asin, title)
+                    # the product page price is the truth; the search page can be stale
+                    live = live_cache.get(asin)
+                    if live and abs(live - price) / price > 0.03:
+                        print(f"[price] {asin}: page {live:g} != search {price:g} -> using page price")
+                        price = live
+                        discount = is_deal(price, list_price, s)
+                        if discount is None:
+                            print(f"[skip] {asin}: no longer a deal at the page price")
+                            continue
+                    if info["amazon_sold"] is not True:
+                        # third-party list prices are set by the seller and often
+                        # inflated: never label them "possible price error"
+                        s_deal = {**s, "suspicious_discount": 1000}
                 fp = fingerprint(title, price)
                 if fp in seen["fps"] and is_recent(seen["fps"][fp], s["repost_after_days"]):
                     print(f"[dup] {asin}: same product/variant already posted -> skipped")
                     continue
                 caption = build_caption(
-                    title, price, list_price, discount, s, tags_for(source, s)
+                    title, price, list_price, discount, s_deal, tags_for(source, s), info
                 )
-                card = make_card_bytes(image, discount, price, list_price, s)
+                card = make_card_bytes(image, discount, price, list_price, s_deal)
                 mode = send_deal(
                     caption, image, card, product_link(asin, s), s.get("channel_handle", "")
                 )
