@@ -1,9 +1,17 @@
+# DRAFT FOR REVIEW ONLY - NOT ACTIVE (lives in docs/, not .github/workflows/).
+# The ONLY differences from the current .github/workflows/track.yml are marked "CHANGED".
+# Schedule, secrets and concurrency are identical. If you approve, copy this file
+# over .github/workflows/track.yml yourself.
 name: Amazon Deal Scanner
 
 on:
   schedule:
-    - cron: "*/30 * * * *"   # every 30 minutes (GitHub may delay/skip some)
-  workflow_dispatch:         # manual run button (also used by cron-job.org)
+    - cron: "*/30 * * * *"   # unchanged. The weekly job does NOT need its own cron:
+                             # scanner.py checks Africa/Cairo time itself (zoneinfo),
+                             # so daylight saving is automatic and no UTC conversion
+                             # is baked in. Runs may be delayed by GitHub; the job has
+                             # a catch-up window (weekly.catch_up_hours) for that.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -28,14 +36,24 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
-        run: python scanner.py
-      - name: Save memory of posted deals (seen.json)
+          # CHANGED: Facebook secrets (add them under Settings > Secrets yourself).
+          # FB_DRY_RUN stays "true" until YOU decide otherwise; the bot also stays
+          # in dry-run while scanner_config.json has dry_run=true.
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
+          FB_DRY_RUN: ${{ secrets.FB_DRY_RUN || 'true' }}
+        run: python -u scanner.py          # CHANGED: -u so logs appear live
+      - name: Save memory of posted deals (seen.json + bot state)
         if: always()
         run: |
-          if [ ! -f seen.json ]; then echo "no seen.json yet"; exit 0; fi
           git config user.name "price-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add seen.json
+          # CHANGED: also persist the bot state files (they only exist when written).
+          # Without this, candidates / message ids / poll state are lost between runs.
+          git add seen.json 2>/dev/null || true
+          for f in bot_state.json bot_state.dryrun.json; do [ -f "$f" ] && git add "$f"; done
           if git diff --staged --quiet; then echo "memory unchanged"; exit 0; fi
           git commit -m "update memory of posted deals"
           for i in 1 2 3; do
