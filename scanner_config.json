@@ -19,7 +19,7 @@
     "timezone": "Africa/Cairo",
     "max_alerts_per_day": 10,
     "quiet_hours": {
-      "start": "00:00",
+      "start": "02:00",
       "end": "09:00"
     },
     "growth_mode": true,
