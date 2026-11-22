@@ -6,6 +6,7 @@ import os
 import random
 import re
 import sys
+import tempfile
 import time
 import traceback
 from datetime import datetime, timezone
@@ -709,7 +710,25 @@ def publish_facebook(deals, ctx):
             print(f"[defer] {d['asin']} (facebook): quiet hours / daily cap -> waits for the weekly digest")
             continue
         text = fbf.format_facebook_post(d, s, affiliate_on(s), disclosure)
-        mode = fbp.post_deal_to_facebook(d, text, s, creds, None, fb_dry, print)
+        # same branded card as Telegram (skipped in dry-run, like Telegram);
+        # if the card fails, the publisher falls back to the plain product image URL
+        card_path = None
+        if not fb_dry:
+            card = make_card_bytes(
+                d["image"], d["discount"], d["price"], d["list_price"], d["s_deal"]
+            )
+            if card:
+                fd, card_path = tempfile.mkstemp(suffix=".jpg")
+                with os.fdopen(fd, "wb") as f:
+                    f.write(card)
+        try:
+            mode = fbp.post_deal_to_facebook(d, text, s, creds, card_path, fb_dry, print)
+        finally:
+            if card_path:
+                try:
+                    os.unlink(card_path)
+                except OSError:
+                    pass
         print(f"[post][facebook] {d['asin']} mode={mode} | {d['title'][:60]}")
         if mode == "token_error":
             stop_for_bad_token()

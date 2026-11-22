@@ -14,23 +14,20 @@
     "affiliate_tag": "offershunte0f-21",
     "channel_handle": "@OffersHunter2026",
     "channel_footer": "📢 اشترك في «صيّاد العروض» عشان توصلك أقوى العروض أول بأول",
-    "dry_run": false,
+    "dry_run": true,
     "weekly_live": false,
     "timezone": "Africa/Cairo",
     "max_alerts_per_day": 10,
-    "quiet_hours": {
-      "start": "02:00",
-      "end": "09:00"
-    },
+    "quiet_hours": null,
     "growth_mode": true,
-    "telegram_per_run": 0,
-    "fb_per_run": 1,
-    "fb_max_per_day": 1,
+    "telegram_per_run": 10,
+    "fb_per_run": 10,
+    "fb_max_per_day": 10,
     "fb_delay_between_posts": [
       5,
       10
     ],
-    "facebook_show_prices": false,
+    "facebook_show_prices": true,
     "fb_graph_version": "v27.0",
     "fb_hashtags": "#عروض_امازون #خصومات",
     "affiliate_disclosure": "💡 بعض الروابط روابط تسويق بالعمولة. As an Amazon Associate I earn from qualifying purchases."
