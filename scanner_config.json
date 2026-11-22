@@ -14,7 +14,7 @@
     "affiliate_tag": "offershunte0f-21",
     "channel_handle": "@OffersHunter2026",
     "channel_footer": "📢 اشترك في «صيّاد العروض» عشان توصلك أقوى العروض أول بأول",
-    "dry_run": true,
+    "dry_run": false,
     "weekly_live": false,
     "timezone": "Africa/Cairo",
     "max_alerts_per_day": 10,
@@ -23,9 +23,9 @@
       "end": "09:00"
     },
     "growth_mode": true,
-    "telegram_per_run": 10,
-    "fb_per_run": 10,
-    "fb_max_per_day": 10,
+    "telegram_per_run": 0,
+    "fb_per_run": 1,
+    "fb_max_per_day": 1,
     "fb_delay_between_posts": [
       5,
       10
