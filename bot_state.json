@@ -1,0 +1,501 @@
+{
+ "candidates": {
+  "B00GRRIZK2": {
+   "amazon_sold": null,
+   "asin": "B00GRRIZK2",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T18:20:25+00:00",
+   "name": "ساعة للرجال بمينا وسوار ستانلس ستيل من كاسيو MTP-1374D-1AVDF, فضي، انالوج",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B00NBR70A2": {
+   "amazon_sold": null,
+   "asin": "B00NBR70A2",
+   "category": "موبايلات",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:19:56+00:00",
+   "last_seen": "2026-11-22T18:19:56+00:00",
+   "name": "سماعة رأس سلكية للموبايلات الذكية مع ميكروفون من سوني، لون أبيض، صوت باس قوي، مقاس واحد، MDR-ZX110AP",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B00TIHRT4Q": {
+   "amazon_sold": null,
+   "asin": "B00TIHRT4Q",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T18:20:34+00:00",
+   "name": "Casio Watch",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B01I1WI4B0": {
+   "amazon_sold": null,
+   "asin": "B01I1WI4B0",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T18:20:25+00:00",
+   "name": "ساعة كاسيو للرجال بمينا باللون الاسود وسوار من الراتنج - MW-240-2B، انالوج بعقارب، كوارتز",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B01MFG732O": {
+   "amazon_sold": null,
+   "asin": "B01MFG732O",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T18:20:34+00:00",
+   "name": "ساعة ستاندارت للرجال بمينا وسوار جلد من كاسيو MTP-V300L-7AUDF، تناظري",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B07BS3LCP1": {
+   "amazon_sold": null,
+   "asin": "B07BS3LCP1",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:20+00:00",
+   "last_seen": "2026-11-22T18:20:20+00:00",
+   "name": "ساعة انتايسر زرقاء كاجوال انالوج بعقارب مصنوعة من الستانلس ستيل كاسيو موديل MTP-VD01D-2BV للرجال",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B07BS51K89": {
+   "amazon_sold": null,
+   "asin": "B07BS51K89",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T18:20:25+00:00",
+   "name": "ساعة يد أنالوج من الستانلس ستيل وبمينا باللون البني للرجال من كاسيو",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B07C9GY2YY": {
+   "amazon_sold": null,
+   "asin": "B07C9GY2YY",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T18:20:25+00:00",
+   "name": "ساعة كاسيو للرجال بمينا اسود وسوار من الستانلس ستيل - MTP-VD01D-1EVUDF",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B07ZW91L56": {
+   "amazon_sold": null,
+   "asin": "B07ZW91L56",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T18:20:25+00:00",
+   "name": "Casio Analog Watch: MTP-VD01 Men",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B084X5THFV": {
+   "amazon_sold": null,
+   "asin": "B084X5THFV",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T18:20:34+00:00",
+   "name": "ساعة كاسيو بمينا دائري وسوار من الستانلس ستيل للرجال MTP-V006D-7B2UDF، انالوج",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B089DJWR26": {
+   "amazon_sold": null,
+   "asin": "B089DJWR26",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T18:20:34+00:00",
+   "name": "ساعة من كاسيو للرجال، بمينا سوداء وسوار فضي، عرض تناظري",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B09BD75Y21": {
+   "amazon_sold": null,
+   "asin": "B09BD75Y21",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:19:56+00:00",
+   "last_seen": "2026-11-22T18:19:56+00:00",
+   "name": "ريزر بلاك شارك V2 X - سماعات رأس سلكية مع مشغلات 50 ملم خاصية الغاء الضوضاء لاجهزة الكمبيوتر ماك وبلاي ستيشن4 اكس بوكس وان و سويتش اخضر",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0C3BV19Q3": {
+   "amazon_sold": null,
+   "asin": "B0C3BV19Q3",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:04+00:00",
+   "last_seen": "2026-11-22T18:20:04+00:00",
+   "name": "سماعة راس سلكية للالعاب من هايبر اكس كلاود III للكمبيوتر وبلاي ستيشن 5 واكس بوكس سلسلة X|S مشغلات بزاوية 53 ملم دي تي اس ميموري فوم اطار متين ميكروفون فائق الوضوح 10 ملم USB-C USB-A 3.5 ملم اسود/احمر",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0C6ML9BXD": {
+   "amazon_sold": null,
+   "asin": "B0C6ML9BXD",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:19:56+00:00",
+   "last_seen": "2026-11-22T18:19:56+00:00",
+   "name": "سماعات ساوند كور من انكر، سبيس ون، بخاصية الغاء الضوضاء النشطة، تقليل الصوت اقوى مرتين، وقت تشغيل ايه ان سي 40 ساعة، تحكم في التطبيق، صوت لاسلكي عالي الدقة ال دي ايه سي، ملاءمة مريحة، بلوتوث 5.3",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0CJRRDF22": {
+   "amazon_sold": null,
+   "asin": "B0CJRRDF22",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T18:20:34+00:00",
+   "name": "كاسيو ساعة رسمية - MTP-VD01D-1CVUDF، تناظري، بمينا أسود، بسوار فضة، الرجال",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0D22SCBFW": {
+   "amazon_sold": null,
+   "asin": "B0D22SCBFW",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:04+00:00",
+   "last_seen": "2026-11-22T18:20:04+00:00",
+   "name": "سماعات اذن ساوند كور K20i شبه داخل الاذن من انكر، بلوتوث لاسلكي، وقت تشغيل 36 ساعة، شحن سريع، صوت واضح، ملاءمة مريحة، مكالمات واضحة بميكروفونين اي ان سي، معادل مخصص، IPX5، بلوتوث 5.3، تحكم عبر التطبيق",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0D268VQM3": {
+   "amazon_sold": null,
+   "asin": "B0D268VQM3",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:19:56+00:00",
+   "last_seen": "2026-11-22T18:19:56+00:00",
+   "name": "سماعات أذن ساوند كور K20i من انكر، سماعات نصفية داخل الأذن، لاسلكية، 36 ساعة تشغيل، شحن سريع، صوت واضح، مكالمات واضحة بتقنية ENC وميكروفونين، معادل مخصص، IPX5، بلوتوث 5.3، تحكم بالتطبيق، أبيض",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0D4JVL27S": {
+   "amazon_sold": null,
+   "asin": "B0D4JVL27S",
+   "category": "أجهزة منزلية",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:19:33+00:00",
+   "last_seen": "2026-11-22T18:19:33+00:00",
+   "name": "بيكو تلفزيون كريستال 4 كيه الترا اتش دي سمارت اندرويد مقاس 50 بوصة، اسود - B50M D 790 B",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0DBHTP4NM": {
+   "amazon_sold": null,
+   "asin": "B0DBHTP4NM",
+   "category": "موبايلات",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:19:56+00:00",
+   "last_seen": "2026-11-22T18:19:56+00:00",
+   "name": "سماعات رأس بوسائد داخل الأذن ريدمي بودز 6 بلاي بتشغيل بطارية 36 ساعة و4 إعدادات موازن صوت وإلغاء ضوضاء بذكاء اصطناعي لمكالمات وبلوتوث 5.4 وشحن سريع لتشغيل موسيقى لـ 3 ساعات في 10 دقائق من شاومي، بينك",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0DLBGN1R7": {
+   "amazon_sold": null,
+   "asin": "B0DLBGN1R7",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T18:20:34+00:00",
+   "name": "ساعة من كاسيو للرجال بمينا أزرق وسوار فضي أنالوج موديل MTP-1374D-7A2V",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0DSTZGML5": {
+   "amazon_sold": null,
+   "asin": "B0DSTZGML5",
+   "category": "أجهزة منزلية",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T18:20:25+00:00",
+   "name": "ساعة JR-FC2 برو بشاشة عالية الدقة 1.46 بوصة ومكالمات بالبلوتوث وأكثر من 120 وضع رياضي ومقاومة للماء 10 ضغط جوي ومتابعة نبض...",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0DWLVD4HN": {
+   "amazon_sold": null,
+   "asin": "B0DWLVD4HN",
+   "category": "أجهزة منزلية",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T18:20:25+00:00",
+   "name": "ساعة يد ذكية رقمية للأطفال مقاومة للماء بشاشة ليد وسوار بتصميم شخصيات كرتونية ملونة بنمط الأبطال الخارقين للأولاد والبنات بعمر 2 -12 سنة، هدية عيد ميلاد، متعددة الألوان، (لون أحمر سبايدرمان)",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0FHKN7ZBY": {
+   "amazon_sold": true,
+   "asin": "B0FHKN7ZBY",
+   "category": "موبايلات",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T18:20:34+00:00",
+   "name": "Infinix XWatch H4 (XW4L)- Haze Green,2.04\" full touch HD screen, IP68 Waterproof, 10 days Normal usa",
+   "seller": null,
+   "shipped_by_amazon": true,
+   "verified": true
+  },
+  "B0FHKPPJNP": {
+   "amazon_sold": null,
+   "asin": "B0FHKPPJNP",
+   "category": "أجهزة منزلية",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T18:20:34+00:00",
+   "name": "انفنيكس اكس ووتش H4 (XW4L) - ازرق داكن، شاشة لمس كاملة HD 5.18 سم، مقاومة للماء IP68، استخدام عادي لمدة 10 ايام",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0FHKTRJNG": {
+   "amazon_sold": null,
+   "asin": "B0FHKTRJNG",
+   "category": "موبايلات",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T18:20:25+00:00",
+   "name": "Infinix XWatch H4 (XW4L)-Titanium Grey,2.04\" full touch HD screen, IP68 Waterproof, 10 days Normal u",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0FWS21YC6": {
+   "amazon_sold": null,
+   "asin": "B0FWS21YC6",
+   "category": "موبايلات",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:19:12+00:00",
+   "last_seen": "2026-11-22T18:19:12+00:00",
+   "name": "مجموعة حزام بمشبك لتثبيت الموبايل المحمول وكاميرا اكشن على الصدر",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0G4S52T6X": {
+   "amazon_sold": null,
+   "asin": "B0G4S52T6X",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:19:56+00:00",
+   "last_seen": "2026-11-22T18:19:56+00:00",
+   "name": "ساوند كور سماعات اذن بلوتوث لاسلكية R60i NC، 6 ميكروفونات بخاصية الغاء الضوضاء في الوقت الحقيقي، صوت عالي الدقة، سماعات اذن بلوتوث لاسلكية، وقت تشغيل 50 ساعة، ازرق، ضمان 18 شهر",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0G8KT3NGZ": {
+   "amazon_sold": null,
+   "asin": "B0G8KT3NGZ",
+   "category": "أجهزة منزلية",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:20+00:00",
+   "last_seen": "2026-11-22T18:20:20+00:00",
+   "name": "ساعة يد ذكية رقمية مقاومة للماء بشاشة ليد للأطفال، ساعة بتصميم شخصيات كرتونية ملونة بنمط الأبطال الخارقين للأطفال من الجنسين، مناسبة من 2 -12 سنة، متعددة الألوان (متعددة الألوان)، نمط سبايدرمان أسود",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0GSVY2KY7": {
+   "amazon_sold": null,
+   "asin": "B0GSVY2KY7",
+   "category": "موبايلات",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:18:55+00:00",
+   "last_seen": "2026-11-22T18:18:55+00:00",
+   "name": "موبايل ذكي سامسونج جالكسي A57 أندرويد بشبكة جيل خامس 5G ومساحة تخزين 512GB وذاكرة رام 12GB و6 ترقيات لنظام التشغيل وشاشة كبيرة وكاميرا 50MP ومدة تشغيل بطارية طويلة، إصدار محلي، أزرق داكن (Navy)",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0GVGKMZ6H": {
+   "amazon_sold": null,
+   "asin": "B0GVGKMZ6H",
+   "category": "موبايلات",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:19:12+00:00",
+   "last_seen": "2026-11-22T18:19:12+00:00",
+   "name": "سلسلة موبايل كروس، حبل موبايل معدني، حزام حبل موبايل عالمي لموبايل آيفون وسامسونج ومعظم الموبايلات الذكية، حزام موبايل كروس × 1، حزام معصم × 1، رقع حبل تعليق × 2، لون فضي",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0H1KC2M91": {
+   "amazon_sold": null,
+   "asin": "B0H1KC2M91",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T18:20:20+00:00",
+   "last_seen": "2026-11-22T18:20:20+00:00",
+   "name": "ساعة كلاسيكية للرجال، اطار مربع اسود، سوار من الستانلس ستيل، عرض انالوج مع التاريخ، مقاومة للماء حتى عمق 30 متر، حركة كوارتز، تصميم انيق للمناسبات (اسود)",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  }
+ },
+ "daily": {
+  "count": 0,
+  "date": "2026-11-22",
+  "fb_count": 0
+ },
+ "facebook": {
+  "alert_date": "2026-11-22",
+  "token_check": {
+   "date": "2026-11-22",
+   "error_code": 190,
+   "valid": false
+  }
+ },
+ "posted": {
+  "facebook": {},
+  "telegram": {}
+ },
+ "version": 1,
+ "weekly": {
+  "current_digest": null,
+  "current_poll": null,
+  "fake_seq": 900000000,
+  "poll_results": [],
+  "weeks": {}
+ },
+ "weekly_sim": {
+  "current_digest": null,
+  "current_poll": null,
+  "fake_seq": 900000000,
+  "poll_results": [],
+  "weeks": {}
+ }
+}
