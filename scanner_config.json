@@ -15,7 +15,7 @@
     "affiliate_tag": "offershunte0f-21",
     "channel_handle": "@OffersHunter2026",
     "channel_footer": "📢 اشترك في «صيّاد العروض» عشان توصلك أقوى العروض أول بأول",
-    "dry_run": true,
+    "dry_run": false,
     "weekly_live": false,
     "timezone": "Africa/Cairo",
     "max_alerts_per_day": 10,
