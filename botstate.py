@@ -25,10 +25,12 @@ def state_path(base_dir, live):
 
 
 def empty_state():
-    return {
+    st = {
         "version": 1,
         "candidates": {},   # asin -> name/category/days/... (never prices)
-        "daily": {"date": None, "count": 0},
+        "daily": {"date": None, "count": 0, "fb_count": 0},
+        "posted": {"telegram": {}, "facebook": {}},   # asin -> ISO time (dry-run too)
+        "facebook": {"token_check": None, "alert_date": None},
         "weekly": {
             "weeks": {},              # week_key -> steps/status/message ids
             "current_digest": None,   # {"message_id", "week"}
@@ -37,6 +39,10 @@ def empty_state():
             "fake_seq": 900000000,    # fake ids used by dry-run simulation
         },
     }
+    # simulated weekly runs live in their own section so a dry-run can never
+    # mark a real week as done or leave fake message ids behind
+    st["weekly_sim"] = json.loads(json.dumps(st["weekly"]))
+    return st
 
 
 def load(path):
@@ -47,8 +53,9 @@ def load(path):
             raw = json.loads(p.read_text(encoding="utf-8"))
         except Exception as e:
             raise RuntimeError(f"{p.name} is unreadable ({e}); refusing to overwrite it")
-        st.update({k: v for k, v in raw.items() if k != "weekly"})
+        st.update({k: v for k, v in raw.items() if k not in ("weekly", "weekly_sim")})
         st["weekly"].update(raw.get("weekly", {}))
+        st["weekly_sim"].update(raw.get("weekly_sim", {}))
     return st
 
 

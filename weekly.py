@@ -142,21 +142,31 @@ def prune_candidates(cands, now_local, keep_days=14):
         del cands[asin]
 
 
-def flush_scan_state(path, mem_cands, daily_date, daily_added, now_local):
-    """Persist what the scan collected (candidates + daily counter) under lock."""
+def flush_scan_state(path, mem_cands, daily_date, daily_added, now_local, extra=None):
+    """Persist what the scan collected under lock: candidates, daily counters and
+    (extra) the per-platform posted log + Facebook meta. seen.json is not touched."""
+    extra = extra or {}
     with botstate.locked(path):
         st = botstate.load(path)
         merge_candidates(st["candidates"], mem_cands)
         prune_candidates(st["candidates"], now_local)
         if st["daily"].get("date") != daily_date:
-            st["daily"] = {"date": daily_date, "count": 0}
+            st["daily"] = {"date": daily_date, "count": 0, "fb_count": 0}
         st["daily"]["count"] += daily_added
+        st["daily"]["fb_count"] = st["daily"].get("fb_count", 0) + extra.get("fb_added", 0)
+        for platform, items in (extra.get("posted") or {}).items():
+            st["posted"].setdefault(platform, {}).update(items)
+        cutoff = _iso(now_local - timedelta(days=30))
+        for platform in st["posted"]:
+            st["posted"][platform] = {a: t for a, t in st["posted"][platform].items() if t >= cutoff}
+        st["facebook"].update(extra.get("facebook_meta") or {})
         botstate.save(path, st)
 
 
-def daily_count(state, daily_date):
+def daily_count(state, daily_date, platform="telegram"):
     d = state.get("daily", {})
-    return d.get("count", 0) if d.get("date") == daily_date else 0
+    key = "fb_count" if platform == "facebook" else "count"
+    return d.get(key, 0) if d.get("date") == daily_date else 0
 
 
 # --------------------------------------------------------------------- ranking
@@ -206,7 +216,7 @@ def hashtag_for(name, categories):
     return cats.default_category(categories)["hashtag"]
 
 
-def build_digest(items, link_fn, wcfg, categories, handle=""):
+def build_digest(items, link_fn, wcfg, categories, handle="", disclosure=True):
     """Numbered list: name + category hashtag + buy link. No price/discount/stock.
     The affiliate disclosure is the LAST line."""
     lines = [wcfg.get("title", "🏆 أفضل عروض الأسبوع"), ""]
@@ -220,7 +230,11 @@ def build_digest(items, link_fn, wcfg, categories, handle=""):
         ]
     if handle:
         lines += [f"📢 {html_escape(handle, quote=False)}", ""]
-    lines.append(html_escape(wcfg["disclosure"], quote=False))
+    if disclosure:   # only when the links really carry the affiliate tag
+        lines.append(html_escape(wcfg["disclosure"], quote=False))
+    else:
+        while lines and lines[-1] == "":
+            lines.pop()
     return "\n".join(lines)
 
 
@@ -377,7 +391,7 @@ def _run_locked(config, settings, state_file, live, client, link_fn,
     categories = config["categories"]
     chat = settings.get("channel_id") or settings.get("channel_handle")
     state = botstate.load(state_file)
-    ws = state["weekly"]
+    ws = state["weekly" if live else "weekly_sim"]
     client.bind(ws)
     wk = ws["weeks"].setdefault(key, _new_week(key, sched))
     protected = {v for v in (wcfg.get("protected_message_ids") or {}).values() if v}
@@ -420,7 +434,8 @@ def _run_locked(config, settings, state_file, live, client, link_fn,
             return "skipped_insufficient_items"
         wk["items"] = [{"asin": i["asin"], "name": i["name"], "category": i["category"]}
                        for i in items]
-        wk["digest_text"] = build_digest(items, link_fn, wcfg, categories, handle)
+        affiliate_on = bool(settings.get("affiliate_tag")) and not settings.get("growth_mode")
+        wk["digest_text"] = build_digest(items, link_fn, wcfg, categories, handle, affiliate_on)
         save()
     log(f"{tag} {key}: digest text:\n{wk['digest_text']}")
 
