@@ -8,6 +8,7 @@ import re
 import sys
 import time
 import traceback
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -23,10 +24,15 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from PIL import Image, ImageDraw, ImageFont
 
+import botstate
+import categories as cats
+import weekly
+
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")          # optional private copy
 CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID")    # e.g. @my_deals_channel
 DOMAIN = "https://www.amazon.eg"
+DRY_RUN = True   # global lock; main() sets it from settings.dry_run (default: locked)
 
 HEADERS = {
     "User-Agent": (
@@ -146,6 +152,76 @@ def seller_is_amazon(html):
     return bool(re.search(SOLD_BY + r"[^A-Za-z؀-ۿ]{0,6}" + AMAZON_NAME, blob, re.I))
 
 
+SHIPS_FROM = (
+    r"(ships from|shipped by|fulfilled by|يشحن من|الشحن من|يتم الشحن من|"
+    r"تشحن من|شحن من|يتم الشحن بواسطة|الشحن بواسطة|شحن بواسطة)"
+)
+
+
+def _buybox_blob(soup):
+    parts = []
+    for sel in (
+        "#merchantInfoFeature_feature_div",
+        "#merchant-info",
+        "#tabular-buybox",
+        "#shipsFromSoldByInsideBuyBox_feature_div",
+        "#fulfillerInfoFeature_feature_div",
+    ):
+        parts += [el.get_text(" ", strip=True) for el in soup.select(sel)]
+    return re.sub(r"[ً-ْ]", "", " ".join(parts))  # drop Arabic diacritics
+
+
+def _seller_name(soup):
+    """Name of the (third-party) seller, or None if it can't be read."""
+    link = soup.select_one("#sellerProfileTriggerId")
+    if link and link.get_text(strip=True):
+        return link.get_text(" ", strip=True)
+    for row in soup.select("#tabular-buybox .tabular-buybox-container"):
+        label = row.select_one(".tabular-buybox-label")
+        value = row.select_one(".tabular-buybox-text")
+        if label and value and re.search(SOLD_BY, label.get_text(" ", strip=True), re.I):
+            return value.get_text(" ", strip=True) or None
+    return None
+
+
+def fulfillment_info(html):
+    """What the product page says about who SELLS and who SHIPS the item.
+    Returns {"amazon_sold": bool|None, "seller": str|None,
+             "shipped_by_amazon": bool|None}. None = couldn't be determined."""
+    soup = BeautifulSoup(html, "html.parser")
+    amazon_sold = seller_is_amazon(html)
+    blob = _buybox_blob(soup)
+    if amazon_sold is True:
+        shipped = True            # Amazon sells it, so Amazon ships it
+    elif re.search(SHIPS_FROM + r"[^A-Za-z؀-ۿ]{0,6}" + AMAZON_NAME, blob, re.I):
+        shipped = True
+    elif re.search(SHIPS_FROM, blob, re.I):
+        shipped = False           # a "ships from" line exists and it isn't Amazon
+    else:
+        shipped = None            # no shipping info at all -> unknown
+    return {
+        "amazon_sold": amazon_sold,
+        "seller": None if amazon_sold else _seller_name(soup),
+        "shipped_by_amazon": shipped,
+    }
+
+
+def page_price(html):
+    """Current price shown on the product page (None if not readable)."""
+    soup = BeautifulSoup(html, "html.parser")
+    for sel in (
+        ".priceToPay .a-offscreen",
+        "#corePrice_feature_div .priceToPay .a-offscreen",
+        "#corePriceDisplay_desktop_feature_div .priceToPay .a-offscreen",
+    ):
+        el = soup.select_one(sel)
+        if el:
+            p = parse_price(el.get_text())
+            if p:
+                return p
+    return None
+
+
 def page_title(html):
     """Full product name from a product page (#productTitle)."""
     el = BeautifulSoup(html, "html.parser").select_one("#productTitle")
@@ -210,7 +286,20 @@ def headline(discount, s):
     return "💰 <b>عرض حلو</b>"
 
 
-def build_caption(title, price, list_price, discount, s, tags):
+def seller_lines(seller):
+    """Caption lines saying clearly who sells the item. seller=None keeps the
+    old behaviour (sold by Amazon)."""
+    if not seller or seller.get("amazon_sold"):
+        return ["🏪 البائع: أمازون ✅ · 📦 الشحن من أمازون"]
+    name = html_escape(seller.get("seller") or "بائع تاني", quote=False)
+    return [
+        f"🏪 البائع: <b>{name}</b> (مش أمازون)",
+        "📦 الشحن من أمازون",
+        "⚠️ تنبيه: ده مش أمازون اللي بايع القطعة، والسعر القديم من عند البائع وممكن يكون مبالغ فيه",
+    ]
+
+
+def build_caption(title, price, list_price, discount, s, tags, seller=None, category=None):
     t = html_escape(title if len(title) <= 130 else title[:127].rstrip() + "...", quote=False)
     saved = list_price - price
     lines = [
@@ -221,7 +310,7 @@ def build_caption(title, price, list_price, discount, s, tags):
         f"❌ كان: <s>{list_price:,.0f} جنيه</s>",
         f"✅ بقى: <b>{price:,.0f} جنيه</b>",
         f"📉 خصم <b>{discount:.0f}%</b>  ·  💸 وفّرت <b>{saved:,.0f} جنيه</b>",
-        "🏪 البائع: أمازون",
+        *seller_lines(seller),
         "",
         tags,
         "",
@@ -229,6 +318,8 @@ def build_caption(title, price, list_price, discount, s, tags):
     ]
     if s.get("channel_footer"):
         lines += ["", html_escape(s["channel_footer"], quote=False)]
+    if category:
+        lines += ["", category["hashtag"]]   # category hashtag = last, visible line
     return "\n".join(lines)
 
 
@@ -380,6 +471,9 @@ def send_deal(caption, image_url, card, link, handle):
     """Post to the channel (and optionally a private chat).
     Returns how the FIRST target was posted: 'card', 'url-photo', 'text',
     'failed' or 'none' (nothing configured)."""
+    if DRY_RUN:
+        print("[dry-run] Would post (nothing sent):\n" + caption)
+        return "none"
     if not TOKEN:
         print("[!] Telegram not configured. Would post:\n" + caption)
         return "none"
@@ -423,7 +517,7 @@ def send_deal(caption, image_url, card, link, handle):
 
 
 # ---------- memory of what was already posted ----------
-SCRIPT_VERSION = "2026-11-20-v3 (card images + dedupe)"
+SCRIPT_VERSION = "2026-11-22-v4 (categories + weekly digest/poll, dry-run)"
 
 
 def load_seen():
@@ -475,26 +569,52 @@ def paged(url, page):
 def main():
     config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
     s = {
-        "min_discount": 80,
+        "min_discount": 30,
         "suspicious_discount": 90,
         "min_list_price": 1000,
         "pages_per_source": 3,
-        "max_alerts_per_run": 15,
-        "only_sold_by_amazon": True,
+        "max_alerts_per_run": 10,
+        "only_sold_by_amazon": False,        # True = Amazon as seller only
+        "require_shipped_by_amazon": True,   # never post items not shipped by Amazon
+        "max_product_checks": 80,            # cap product-page lookups per run
         "delay_between_posts": [30, 40],
+        "dry_run": True,            # GLOBAL LOCK: nothing is published until false
+        "weekly_live": False,       # weekly digest/pin/poll; also needs dry_run=false
+        "timezone": "Africa/Cairo",
+        "max_alerts_per_day": 10,   # daily cap on individual posts
+        "quiet_hours": None,        # {"start": "00:00", "end": "09:00"} = no posting
         "repost_after_days": 14,   # never repost the same product before this...
         "repost_min_drop": 0.10,   # ...unless its price fell by at least this much
         **config.get("settings", {}),
     }
+    global DRY_RUN
+    DRY_RUN = bool(s["dry_run"])
+    categories = config.get("categories") or [cats.default_category([])]
+    cats.validate(categories)
+    config["categories"] = categories
+    tz = weekly.tz_of(s["timezone"])
+    weekly_live = (not DRY_RUN) and bool(s["weekly_live"]) and bool(TOKEN) and bool(CHANNEL_ID)
+    state_file = botstate.state_path(BASE, weekly_live)   # prod vs dry-run state
     print(f"scanner version: {SCRIPT_VERSION}")
+    print(
+        f"mode: dry_run={DRY_RUN} weekly_live={weekly_live} state={state_file.name} "
+        f"tz={s['timezone']} daily_cap={s['max_alerts_per_day']} quiet={s['quiet_hours']}"
+    )
     print(
         f"settings: min_discount={s['min_discount']} max_alerts={s['max_alerts_per_run']} "
         f"handle={s.get('channel_handle') or '(none)'} logo={'yes' if LOGO_FILE.exists() else 'MISSING'} "
         f"channel={'set' if CHANNEL_ID else 'NOT SET'}"
     )
     seller_cache = {}
+    live_cache = {}
     title_cache = {}
+    checks = 0
     seen = load_seen()
+    st0 = botstate.load(state_file)
+    cands = {a: dict(c) for a, c in st0["candidates"].items()}   # no prices inside
+    today = datetime.now(tz).date().isoformat()
+    base_daily = weekly.daily_count(st0, today)
+    daily_added = 0
     print(f"loaded memory: {len(seen['asins'])} products already posted")
 
     alerts, scanned, failures, pages_tried, post_failures = 0, 0, 0, 0, 0
@@ -521,6 +641,11 @@ def main():
                 discount = is_deal(price, list_price, s)
                 if discount is None:
                     continue
+                cand = weekly.touch(
+                    cands, asin, title, cats.classify(title, categories)["name"], datetime.now(tz)
+                )
+                if cand.get("deferred"):
+                    continue  # over the cap / quiet hours earlier: waits for the weekly digest
                 prev = seen["asins"].get(asin)
                 if (
                     prev
@@ -530,34 +655,75 @@ def main():
                     continue  # already posted; no real new price drop
                 if alerts >= s["max_alerts_per_run"] or post_failures >= 3:
                     continue
-                if s["only_sold_by_amazon"]:
+                info = None
+                s_deal = s
+                if s["only_sold_by_amazon"] or s["require_shipped_by_amazon"]:
                     if asin not in seller_cache:
+                        if checks >= s["max_product_checks"]:
+                            continue  # check budget spent; try again next run
+                        checks += 1
                         try:
                             time.sleep(random.uniform(3, 6))
                             prod_html = fetch_page(f"{DOMAIN}/dp/{asin}")
-                            seller_cache[asin] = seller_is_amazon(prod_html)
+                            seller_cache[asin] = fulfillment_info(prod_html)
+                            live_cache[asin] = page_price(prod_html)
                             full = page_title(prod_html)
                             if full:
                                 title_cache[asin] = full
                         except Exception as e:
                             print(f"[x] seller check {asin}: {e}")
                             seller_cache[asin] = None
-                    if seller_cache[asin] is not True:
-                        print(f"[skip] {asin}: not sold by Amazon (or unknown)")
+                    info = seller_cache[asin]
+                    if not info:
+                        print(f"[skip] {asin}: seller/shipping unknown")
+                        continue
+                    if s["only_sold_by_amazon"] and info["amazon_sold"] is not True:
+                        print(f"[skip] {asin}: not sold by Amazon")
+                        continue
+                    if s["require_shipped_by_amazon"] and info["shipped_by_amazon"] is not True:
+                        print(f"[skip] {asin}: not shipped by Amazon (or unknown)")
                         continue
                     title = title_cache.get(asin, title)
+                    # the product page price is the truth; the search page can be stale
+                    live = live_cache.get(asin)
+                    if live and abs(live - price) / price > 0.03:
+                        print(f"[price] {asin}: page {live:g} != search {price:g} -> using page price")
+                        price = live
+                        discount = is_deal(price, list_price, s)
+                        if discount is None:
+                            print(f"[skip] {asin}: no longer a deal at the page price")
+                            continue
+                    if info["amazon_sold"] is not True:
+                        # third-party list prices are set by the seller and often
+                        # inflated: never label them "possible price error"
+                        s_deal = {**s, "suspicious_discount": 1000}
+                cat = cats.classify(title, categories)
+                if info is not None:   # passed the seller/shipping checks
+                    weekly.mark_verified(cand, info, title_cache.get(asin), cat["name"])
                 fp = fingerprint(title, price)
                 if fp in seen["fps"] and is_recent(seen["fps"][fp], s["repost_after_days"]):
                     print(f"[dup] {asin}: same product/variant already posted -> skipped")
                     continue
+                if (
+                    weekly.in_quiet_hours(datetime.now(tz), s.get("quiet_hours"))
+                    or base_daily + daily_added >= s["max_alerts_per_day"]
+                ):
+                    cand["deferred"] = True
+                    print(f"[defer] {asin}: quiet hours / daily cap -> waits for the weekly digest")
+                    continue
                 caption = build_caption(
-                    title, price, list_price, discount, s, tags_for(source, s)
+                    title, price, list_price, discount, s_deal, tags_for(source, s), info, cat
                 )
-                card = make_card_bytes(image, discount, price, list_price, s)
+                # dry-run: no image download/upload at all
+                card = None if DRY_RUN else make_card_bytes(image, discount, price, list_price, s_deal)
                 mode = send_deal(
                     caption, image, card, product_link(asin, s), s.get("channel_handle", "")
                 )
                 print(f"[post] {asin} mode={mode} | {title[:60]}")
+                if DRY_RUN:
+                    alerts += 1          # simulated: counts toward the caps only,
+                    daily_added += 1     # nothing is remembered in seen.json
+                    continue
                 if mode in ("failed", "none"):
                     post_failures += 1  # not remembered, will retry next run
                     continue
@@ -566,6 +732,7 @@ def main():
                 seen["fps"][fp] = now
                 save_seen(seen)  # remember immediately, even if the run dies later
                 alerts += 1
+                daily_added += 1
                 # space posts out so the channel isn't flooded all at once
                 lo, hi = s["delay_between_posts"]
                 wait = random.uniform(lo, hi)
@@ -574,6 +741,17 @@ def main():
             time.sleep(random.uniform(4, 9))
 
     save_seen(seen)
+    try:   # collected candidates + daily counter (separate file; seen.json untouched)
+        weekly.flush_scan_state(state_file, cands, today, daily_added, datetime.now(tz))
+        client = weekly.make_client(weekly_live, TOKEN, print)
+        status = weekly.run_weekly(
+            config, {**s, "channel_id": CHANNEL_ID}, state_file=state_file,
+            live=weekly_live, client=client, link_fn=lambda a: product_link(a, s),
+            handle=s.get("channel_handle", ""), log=print,
+        )
+        print(f"[weekly] status: {status}")
+    except Exception:  # the weekly job must never break the scan
+        print("[weekly] ERROR (scan unaffected):\n" + traceback.format_exc())
     print(f"Scanned {scanned} items, sent {alerts} alerts, {failures} failed pages")
     if pages_tried and failures == pages_tried:
         sys.exit(1)

@@ -1,18 +1,28 @@
 {
   "settings": {
-    "min_discount": 45,
+    "min_discount": 30,
     "suspicious_discount": 90,
     "min_list_price": 0,
     "pages_per_source": 3,
-    "max_alerts_per_run": 5,
-    "only_sold_by_amazon": true,
+    "max_alerts_per_run": 10,
+    "only_sold_by_amazon": false,
+    "require_shipped_by_amazon": true,
+    "max_product_checks": 80,
     "delay_between_posts": [
       30,
       40
     ],
     "affiliate_tag": "offershunte0f-21",
     "channel_handle": "@OffersHunter2026",
-    "channel_footer": "📢 اشترك في «صيّاد العروض» عشان توصلك أقوى العروض أول بأول"
+    "channel_footer": "📢 اشترك في «صيّاد العروض» عشان توصلك أقوى العروض أول بأول",
+    "dry_run": true,
+    "weekly_live": false,
+    "timezone": "Africa/Cairo",
+    "max_alerts_per_day": 10,
+    "quiet_hours": {
+      "start": "00:00",
+      "end": "09:00"
+    }
   },
   "sources": [
     "https://www.amazon.eg/s?k=laptop",
@@ -29,5 +39,203 @@
     "https://www.amazon.eg/s?k=toys",
     "https://www.amazon.eg/s?k=beauty",
     "https://www.amazon.eg/s?k=home+appliances"
-  ]
+  ],
+  "categories": [
+    {
+      "name": "اكسسوارات موبايل",
+      "hashtag": "#اكسسوارات_موبايل",
+      "keywords": [
+        "كفر",
+        "جراب",
+        "شاحن",
+        "كابل",
+        "سكرينة",
+        "واقي شاشة",
+        "باور بانك",
+        "حامل موبايل",
+        "حامل هاتف",
+        "سماعة بلوتوث",
+        "phone case",
+        "mobile case",
+        "cover",
+        "charger",
+        "charging",
+        "cable",
+        "screen protector",
+        "power bank",
+        "airpods",
+        "earbuds",
+        "phone holder",
+        "tempered glass"
+      ]
+    },
+    {
+      "name": "موبايلات",
+      "hashtag": "#موبايلات",
+      "keywords": [
+        "موبايل",
+        "هاتف",
+        "ايفون",
+        "جالاكسي",
+        "سامسونج جالاكسي",
+        "ريدمي",
+        "شاومي",
+        "اوبو",
+        "ريلمي",
+        "انفينكس",
+        "تكنو",
+        "هونر",
+        "smartphone",
+        "mobile phone",
+        "iphone",
+        "galaxy",
+        "redmi",
+        "xiaomi",
+        "oppo",
+        "realme",
+        "infinix",
+        "tecno",
+        "honor",
+        "pixel"
+      ]
+    },
+    {
+      "name": "أجهزة منزلية",
+      "hashtag": "#أجهزة_منزلية",
+      "keywords": [
+        "اير فراير",
+        "قلاية",
+        "غسالة",
+        "ثلاجة",
+        "فريزر",
+        "خلاط",
+        "مكنسة",
+        "ميكروويف",
+        "بوتجاز",
+        "سخان",
+        "مكواة",
+        "غلاية",
+        "عصارة",
+        "محضر طعام",
+        "مروحة",
+        "تكييف",
+        "شاشة",
+        "تلفزيون",
+        "air fryer",
+        "fryer",
+        "washing machine",
+        "refrigerator",
+        "fridge",
+        "blender",
+        "vacuum",
+        "microwave",
+        "cooker",
+        "heater",
+        "iron",
+        "kettle",
+        "juicer",
+        "mixer",
+        "fan",
+        "air conditioner",
+        "tv"
+      ]
+    },
+    {
+      "name": "جزم",
+      "hashtag": "#جزم",
+      "keywords": [
+        "حذاء",
+        "جزمة",
+        "جزم",
+        "كوتشي",
+        "صندل",
+        "شبشب",
+        "بوت",
+        "نعل",
+        "shoe",
+        "sneaker",
+        "boot",
+        "sandal",
+        "slipper",
+        "loafer",
+        "trainers"
+      ]
+    },
+    {
+      "name": "لبس",
+      "hashtag": "#لبس",
+      "keywords": [
+        "تيشيرت",
+        "قميص",
+        "بنطلون",
+        "فستان",
+        "جاكيت",
+        "هودي",
+        "بلوزة",
+        "عباية",
+        "طقم",
+        "ملابس",
+        "لبس",
+        "جيبة",
+        "بيجامة",
+        "سويت شيرت",
+        "شورت",
+        "shirt",
+        "t-shirt",
+        "jeans",
+        "pants",
+        "trousers",
+        "dress",
+        "jacket",
+        "hoodie",
+        "blouse",
+        "sweater",
+        "shorts",
+        "clothes",
+        "pajama"
+      ]
+    },
+    {
+      "name": "متنوع",
+      "hashtag": "#متنوع",
+      "keywords": [],
+      "default": true
+    }
+  ],
+  "weekly": {
+    "enabled": true,
+    "weekday": 3,
+    "hour": 21,
+    "minute": 0,
+    "_schedule_note": "PROPOSED: Thursday 21:00 Africa/Cairo (weekday 0=Mon..6=Sun) until the owner approves",
+    "catch_up_hours": 6,
+    "dry_run_window_minutes": 30,
+    "window_days": 7,
+    "min_items": 5,
+    "max_items": 7,
+    "max_attempts": 3,
+    "ranking": {
+      "_note": "score = amazon_seller*[sold by Amazon] + days_caught*(days caught/cap) + recency*(1 - age/window). No prices/discounts are used or stored.",
+      "weights": {
+        "amazon_seller": 3,
+        "days_caught": 2,
+        "recency": 1
+      },
+      "days_caught_cap": 7
+    },
+    "title": "🏆 <b>أفضل عروض الأسبوع</b>",
+    "disclosure": "💡 As an Amazon Associate I earn from qualifying purchases. | بصفتي شريك في أمازون بكسب عمولة من المشتريات المؤهلة.",
+    "pin": true,
+    "poll": {
+      "question": "تحب أجيب عروض إيه الأسبوع الجاي؟",
+      "options_source": "categories",
+      "allows_multiple_answers": true,
+      "is_anonymous": true,
+      "type": "regular"
+    },
+    "protected_message_ids": {
+      "intro": null,
+      "index": null
+    }
+  }
 }
