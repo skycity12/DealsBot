@@ -142,13 +142,26 @@ class TestPublisher(unittest.TestCase):
         self.assertTrue(r["valid"])
         self.assertEqual(r["missing_scopes"], [])
         self.assertNotIn("SECRET", g.call_args[0][0])        # secrets only in the header
-        bad = FakeResp(True, {"data": {"is_valid": False, "error": {"code": 190}}})
+        bad = FakeResp(True, {"data": {"is_valid": False, "error": {"code": 190, "message": "Session has expired"}}})
         with mock.patch("requests.get", return_value=bad):
             r = fbp.validate_facebook_token(CREDS, S, False, lambda *_: None)
         self.assertEqual((r["valid"], r["error_code"]), (False, 190))
+        self.assertIn("expired", r["reason"])                  # the reason is reported
         import requests
         with mock.patch("requests.get", side_effect=requests.ConnectionError("net")):
             self.assertTrue(fbp.validate_facebook_token(CREDS, S, False, lambda *_: None)["valid"])  # blip != invalid
+
+    def test_unusable_check_is_not_treated_as_invalid_token(self):
+        # a 400 that is NOT code 190 (bad request shape / app credentials) must not stop Facebook
+        resp = FakeResp(False, {"error": {"code": 100, "message": "Invalid parameter PAGE-SECRET-TOKEN"}}, 400)
+        with mock.patch("requests.get", return_value=resp):
+            r = fbp.validate_facebook_token(CREDS, S, False, lambda *_: None)
+        self.assertTrue(r["valid"])
+        self.assertIn("could not be used", r["reason"])
+        self.assertNotIn("PAGE-SECRET-TOKEN", r["reason"])
+        resp = FakeResp(False, {"error": {"code": 190, "message": "Invalid OAuth access token"}}, 400)
+        with mock.patch("requests.get", return_value=resp):
+            self.assertFalse(fbp.validate_facebook_token(CREDS, S, False, lambda *_: None)["valid"])
 
     def test_scrub_removes_secrets(self):
         out = fbp.scrub("failed for PAGE-SECRET-TOKEN and 42|APP-SECRET", CREDS)

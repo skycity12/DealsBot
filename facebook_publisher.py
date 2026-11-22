@@ -123,8 +123,10 @@ def validate_facebook_token(creds, settings, dry_run=True, log=print):
     try:
         r = requests.get(
             f"{_base(settings)}/debug_token",
-            params={"input_token": creds["page_token"]},
-            headers={"Authorization": f"Bearer {creds['app_id']}|{creds['app_secret']}"},
+            # documented form: app access token = APP_ID|APP_SECRET (GitHub masks
+            # secrets in logs, and scrub() removes them from our own messages)
+            params={"input_token": creds["page_token"],
+                    "access_token": f"{creds['app_id']}|{creds['app_secret']}"},
             timeout=30,
         )
     except requests.RequestException as e:
@@ -133,10 +135,28 @@ def validate_facebook_token(creds, settings, dry_run=True, log=print):
         return {"valid": True, "error_code": None, "simulated": False,
                 "missing_scopes": [], "reason": "network error, assumed valid"}
     err = _error_of(r)
-    data = (r.json().get("data") if r.ok else None) or {}
-    code = (data.get("error") or {}).get("code") or err.get("code")
+    try:
+        data = (r.json().get("data") if r.ok else None) or {}
+    except ValueError:
+        data = {}
+    if not r.ok or not data:
+        # The CHECK itself failed (wrong request, bad app credentials, outage...).
+        # That is not proof that the page token is bad: only code 190 is. For
+        # anything else keep going; the post itself returns 190 if the token is bad.
+        code = err.get("code")
+        msg = scrub(err.get("message", f"HTTP {r.status_code}"), creds)
+        if code in AUTH_ERROR_CODES:
+            return {"valid": False, "error_code": code, "simulated": False,
+                    "missing_scopes": [], "reason": msg}
+        return {"valid": True, "error_code": code, "simulated": False, "missing_scopes": [],
+                "reason": f"debug_token could not be used (code {code}: {msg}); "
+                          f"not treated as invalid"}
+    inner = data.get("error") or {}
+    code = inner.get("code")
     valid = bool(data.get("is_valid")) and code not in AUTH_ERROR_CODES
     need = {"pages_manage_posts", "pages_read_engagement", "pages_show_list"}
     scopes = set(data.get("scopes") or [])
     missing = sorted(need - scopes) if scopes else []
-    return {"valid": valid, "error_code": code, "simulated": False, "missing_scopes": missing}
+    reason = None if valid else scrub(inner.get("message", "is_valid=false"), creds)
+    return {"valid": valid, "error_code": code, "simulated": False,
+            "missing_scopes": missing, "reason": reason}

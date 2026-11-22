@@ -671,6 +671,8 @@ def publish_facebook(deals, ctx):
         valid = res["valid"]
         if not fb_dry:   # a simulated check must never be cached as a real one
             ctx["fb_meta"]["token_check"] = {"date": today, "valid": valid, "error_code": res.get("error_code")}
+        if res.get("reason"):
+            print(f"[facebook] token check: {res['reason']}")
         if res.get("missing_scopes"):
             print(f"[facebook] WARNING token lacks scopes: {res['missing_scopes']}")
 
