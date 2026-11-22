@@ -8,6 +8,7 @@ import re
 import sys
 import time
 import traceback
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -23,10 +24,15 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from PIL import Image, ImageDraw, ImageFont
 
+import botstate
+import categories as cats
+import weekly
+
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")          # optional private copy
 CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID")    # e.g. @my_deals_channel
 DOMAIN = "https://www.amazon.eg"
+DRY_RUN = True   # global lock; main() sets it from settings.dry_run (default: locked)
 
 HEADERS = {
     "User-Agent": (
@@ -293,7 +299,7 @@ def seller_lines(seller):
     ]
 
 
-def build_caption(title, price, list_price, discount, s, tags, seller=None):
+def build_caption(title, price, list_price, discount, s, tags, seller=None, category=None):
     t = html_escape(title if len(title) <= 130 else title[:127].rstrip() + "...", quote=False)
     saved = list_price - price
     lines = [
@@ -312,6 +318,8 @@ def build_caption(title, price, list_price, discount, s, tags, seller=None):
     ]
     if s.get("channel_footer"):
         lines += ["", html_escape(s["channel_footer"], quote=False)]
+    if category:
+        lines += ["", category["hashtag"]]   # category hashtag = last, visible line
     return "\n".join(lines)
 
 
@@ -463,6 +471,9 @@ def send_deal(caption, image_url, card, link, handle):
     """Post to the channel (and optionally a private chat).
     Returns how the FIRST target was posted: 'card', 'url-photo', 'text',
     'failed' or 'none' (nothing configured)."""
+    if DRY_RUN:
+        print("[dry-run] Would post (nothing sent):\n" + caption)
+        return "none"
     if not TOKEN:
         print("[!] Telegram not configured. Would post:\n" + caption)
         return "none"
@@ -506,7 +517,7 @@ def send_deal(caption, image_url, card, link, handle):
 
 
 # ---------- memory of what was already posted ----------
-SCRIPT_VERSION = "2026-11-22-v3.1 (30% + shipped-by-Amazon + seller notice)"
+SCRIPT_VERSION = "2026-11-22-v4 (categories + weekly digest/poll, dry-run)"
 
 
 def load_seen():
@@ -567,11 +578,28 @@ def main():
         "require_shipped_by_amazon": True,   # never post items not shipped by Amazon
         "max_product_checks": 80,            # cap product-page lookups per run
         "delay_between_posts": [30, 40],
+        "dry_run": True,            # GLOBAL LOCK: nothing is published until false
+        "weekly_live": False,       # weekly digest/pin/poll; also needs dry_run=false
+        "timezone": "Africa/Cairo",
+        "max_alerts_per_day": 10,   # daily cap on individual posts
+        "quiet_hours": None,        # {"start": "00:00", "end": "09:00"} = no posting
         "repost_after_days": 14,   # never repost the same product before this...
         "repost_min_drop": 0.10,   # ...unless its price fell by at least this much
         **config.get("settings", {}),
     }
+    global DRY_RUN
+    DRY_RUN = bool(s["dry_run"])
+    categories = config.get("categories") or [cats.default_category([])]
+    cats.validate(categories)
+    config["categories"] = categories
+    tz = weekly.tz_of(s["timezone"])
+    weekly_live = (not DRY_RUN) and bool(s["weekly_live"]) and bool(TOKEN) and bool(CHANNEL_ID)
+    state_file = botstate.state_path(BASE, weekly_live)   # prod vs dry-run state
     print(f"scanner version: {SCRIPT_VERSION}")
+    print(
+        f"mode: dry_run={DRY_RUN} weekly_live={weekly_live} state={state_file.name} "
+        f"tz={s['timezone']} daily_cap={s['max_alerts_per_day']} quiet={s['quiet_hours']}"
+    )
     print(
         f"settings: min_discount={s['min_discount']} max_alerts={s['max_alerts_per_run']} "
         f"handle={s.get('channel_handle') or '(none)'} logo={'yes' if LOGO_FILE.exists() else 'MISSING'} "
@@ -582,6 +610,11 @@ def main():
     title_cache = {}
     checks = 0
     seen = load_seen()
+    st0 = botstate.load(state_file)
+    cands = {a: dict(c) for a, c in st0["candidates"].items()}   # no prices inside
+    today = datetime.now(tz).date().isoformat()
+    base_daily = weekly.daily_count(st0, today)
+    daily_added = 0
     print(f"loaded memory: {len(seen['asins'])} products already posted")
 
     alerts, scanned, failures, pages_tried, post_failures = 0, 0, 0, 0, 0
@@ -608,6 +641,11 @@ def main():
                 discount = is_deal(price, list_price, s)
                 if discount is None:
                     continue
+                cand = weekly.touch(
+                    cands, asin, title, cats.classify(title, categories)["name"], datetime.now(tz)
+                )
+                if cand.get("deferred"):
+                    continue  # over the cap / quiet hours earlier: waits for the weekly digest
                 prev = seen["asins"].get(asin)
                 if (
                     prev
@@ -659,18 +697,33 @@ def main():
                         # third-party list prices are set by the seller and often
                         # inflated: never label them "possible price error"
                         s_deal = {**s, "suspicious_discount": 1000}
+                cat = cats.classify(title, categories)
+                if info is not None:   # passed the seller/shipping checks
+                    weekly.mark_verified(cand, info, title_cache.get(asin), cat["name"])
                 fp = fingerprint(title, price)
                 if fp in seen["fps"] and is_recent(seen["fps"][fp], s["repost_after_days"]):
                     print(f"[dup] {asin}: same product/variant already posted -> skipped")
                     continue
+                if (
+                    weekly.in_quiet_hours(datetime.now(tz), s.get("quiet_hours"))
+                    or base_daily + daily_added >= s["max_alerts_per_day"]
+                ):
+                    cand["deferred"] = True
+                    print(f"[defer] {asin}: quiet hours / daily cap -> waits for the weekly digest")
+                    continue
                 caption = build_caption(
-                    title, price, list_price, discount, s_deal, tags_for(source, s), info
+                    title, price, list_price, discount, s_deal, tags_for(source, s), info, cat
                 )
-                card = make_card_bytes(image, discount, price, list_price, s_deal)
+                # dry-run: no image download/upload at all
+                card = None if DRY_RUN else make_card_bytes(image, discount, price, list_price, s_deal)
                 mode = send_deal(
                     caption, image, card, product_link(asin, s), s.get("channel_handle", "")
                 )
                 print(f"[post] {asin} mode={mode} | {title[:60]}")
+                if DRY_RUN:
+                    alerts += 1          # simulated: counts toward the caps only,
+                    daily_added += 1     # nothing is remembered in seen.json
+                    continue
                 if mode in ("failed", "none"):
                     post_failures += 1  # not remembered, will retry next run
                     continue
@@ -679,6 +732,7 @@ def main():
                 seen["fps"][fp] = now
                 save_seen(seen)  # remember immediately, even if the run dies later
                 alerts += 1
+                daily_added += 1
                 # space posts out so the channel isn't flooded all at once
                 lo, hi = s["delay_between_posts"]
                 wait = random.uniform(lo, hi)
@@ -687,6 +741,17 @@ def main():
             time.sleep(random.uniform(4, 9))
 
     save_seen(seen)
+    try:   # collected candidates + daily counter (separate file; seen.json untouched)
+        weekly.flush_scan_state(state_file, cands, today, daily_added, datetime.now(tz))
+        client = weekly.make_client(weekly_live, TOKEN, print)
+        status = weekly.run_weekly(
+            config, {**s, "channel_id": CHANNEL_ID}, state_file=state_file,
+            live=weekly_live, client=client, link_fn=lambda a: product_link(a, s),
+            handle=s.get("channel_handle", ""), log=print,
+        )
+        print(f"[weekly] status: {status}")
+    except Exception:  # the weekly job must never break the scan
+        print("[weekly] ERROR (scan unaffected):\n" + traceback.format_exc())
     print(f"Scanned {scanned} items, sent {alerts} alerts, {failures} failed pages")
     if pages_tried and failures == pages_tried:
         sys.exit(1)
