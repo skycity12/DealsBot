@@ -574,6 +574,15 @@ def paged(url, page):
     return f"{url}{sep}page={page}"
 
 
+def page_hint(html):
+    """Short description of a page that held no products (for the log)."""
+    try:
+        title = BeautifulSoup(html, "html.parser").title
+        return (title.get_text(" ", strip=True) if title else "(no title)")[:80]
+    except Exception:
+        return "(unreadable)"
+
+
 DEFAULT_DISCLOSURE = (
     "💡 بعض الروابط روابط تسويق بالعمولة. "
     "As an Amazon Associate I earn from qualifying purchases."
@@ -671,6 +680,8 @@ def publish_facebook(deals, ctx):
         valid = res["valid"]
         if not fb_dry:   # a simulated check must never be cached as a real one
             ctx["fb_meta"]["token_check"] = {"date": today, "valid": valid, "error_code": res.get("error_code")}
+        if res.get("reason"):
+            print(f"[facebook] token check: {res['reason']}")
         if res.get("missing_scopes"):
             print(f"[facebook] WARNING token lacks scopes: {res['missing_scopes']}")
 
@@ -728,6 +739,7 @@ def main():
         "only_sold_by_amazon": False,        # True = Amazon as seller only
         "require_shipped_by_amazon": True,   # never post items not shipped by Amazon
         "max_product_checks": 80,            # cap product-page lookups per run
+        "max_consecutive_empty_pages": 4,    # stop the run if Amazon keeps returning empty pages
         "delay_between_posts": [30, 40],
         "fb_delay_between_posts": [5, 10],
         "dry_run": True,            # GLOBAL LOCK: nothing is published until false
@@ -794,8 +806,9 @@ def main():
     per_run_total = s["telegram_per_run"] + s["fb_per_run"]
     pending = []     # deals collected this run (up to 20), published after the scan
     scanned, failures, pages_tried = 0, 0, 0
+    empty_run, stop_all = 0, False
     for source in config["sources"]:
-        if len(pending) >= per_run_total:
+        if len(pending) >= per_run_total or stop_all:
             break
         for page in range(1, s["pages_per_source"] + 1):
             if len(pending) >= per_run_total:
@@ -810,6 +823,25 @@ def main():
                 time.sleep(random.uniform(4, 8))
                 continue
             cards = parse_cards(html)
+            if not cards:
+                # HTTP was fine but there are no products: usually an Amazon block /
+                # robot-check / consent page, not real results. Count it as a failure.
+                empty_run += 1
+                failures += 1
+                print(
+                    f"[warn] {url} -> 0 items (page title: {page_hint(html)!r}, "
+                    f"{len(html)} bytes) - probably a block page, not real results"
+                )
+                if empty_run >= s["max_consecutive_empty_pages"]:
+                    print(
+                        f"[stop] {empty_run} empty pages in a row -> stopping this run "
+                        f"so we do not hammer Amazon. Try again later."
+                    )
+                    stop_all = True
+                    break
+                time.sleep(random.uniform(4, 8))
+                continue
+            empty_run = 0
             with_list = [(p, l) for _, _, p, l, _ in cards if l and l > p]
             best = max((round((1 - p / l) * 100) for p, l in with_list), default=0)
             print(
