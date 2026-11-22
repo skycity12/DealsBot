@@ -158,5 +158,14 @@ def validate_facebook_token(creds, settings, dry_run=True, log=print):
     scopes = set(data.get("scopes") or [])
     missing = sorted(need - scopes) if scopes else []
     reason = None if valid else scrub(inner.get("message", "is_valid=false"), creds)
+    # posting needs a PAGE token whose profile is the page; a USER token is a common mix-up
+    ttype = str(data.get("type") or "").upper()
+    if valid and ttype and ttype != "PAGE":
+        valid, reason = False, (
+            f"FB_PAGE_ACCESS_TOKEN is a {ttype} token; a PAGE token is required "
+            f"(copy the page's access_token from me/accounts)")
+    elif valid and data.get("profile_id") and str(data["profile_id"]) != str(creds.get("page_id")):
+        valid, reason = False, (
+            f"token belongs to profile {data['profile_id']}, not FB_PAGE_ID {creds.get('page_id')}")
     return {"valid": valid, "error_code": code, "simulated": False,
             "missing_scopes": missing, "reason": reason}

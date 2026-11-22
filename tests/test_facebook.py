@@ -163,6 +163,21 @@ class TestPublisher(unittest.TestCase):
         with mock.patch("requests.get", return_value=resp):
             self.assertFalse(fbp.validate_facebook_token(CREDS, S, False, lambda *_: None)["valid"])
 
+    def test_user_token_and_wrong_page_are_reported_clearly(self):
+        user = FakeResp(True, {"data": {"is_valid": True, "type": "USER", "scopes": []}})
+        with mock.patch("requests.get", return_value=user):
+            r = fbp.validate_facebook_token(CREDS, S, False, lambda *_: None)
+        self.assertFalse(r["valid"])
+        self.assertIn("USER token", r["reason"])
+        other = FakeResp(True, {"data": {"is_valid": True, "type": "PAGE", "profile_id": "999"}})
+        with mock.patch("requests.get", return_value=other):
+            r = fbp.validate_facebook_token(CREDS, S, False, lambda *_: None)
+        self.assertFalse(r["valid"])
+        self.assertIn("not FB_PAGE_ID", r["reason"])
+        good = FakeResp(True, {"data": {"is_valid": True, "type": "PAGE", "profile_id": "123"}})
+        with mock.patch("requests.get", return_value=good):
+            self.assertTrue(fbp.validate_facebook_token(CREDS, S, False, lambda *_: None)["valid"])
+
     def test_scrub_removes_secrets(self):
         out = fbp.scrub("failed for PAGE-SECRET-TOKEN and 42|APP-SECRET", CREDS)
         self.assertNotIn("PAGE-SECRET-TOKEN", out)
