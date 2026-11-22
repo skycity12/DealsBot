@@ -193,7 +193,8 @@ class TestWeeklyDryRun(Base):
         self.assertEqual(r, "complete")
         self.assertFalse((self.dir / "bot_state.json").exists())
         st = botstate.load(dry)
-        self.assertEqual(st["weekly"]["weeks"]["2026-W48"]["status"], "complete")
+        self.assertEqual(st["weekly_sim"]["weeks"]["2026-W48"]["status"], "complete")
+        self.assertEqual(st["weekly"]["weeks"], {})              # real section untouched
 
     def test_gate_logic_in_scanner_expression(self):
         # same expression scanner.main uses: weekly_live needs EVERY condition

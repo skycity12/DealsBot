@@ -8,7 +8,7 @@ import re
 import sys
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -26,6 +26,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 import botstate
 import categories as cats
+import facebook_formatter as fbf
+import facebook_publisher as fbp
+import splitter
 import weekly
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -238,10 +241,15 @@ def is_deal(price, list_price, s):
     return discount if discount >= s["min_discount"] else None
 
 
+def affiliate_on(s):
+    """Links carry the affiliate tag only when a tag is set AND growth_mode is off."""
+    return bool(s.get("affiliate_tag")) and not s.get("growth_mode")
+
+
 def product_link(asin, s):
     link = f"{DOMAIN}/dp/{asin}"
-    tag = s.get("affiliate_tag")
-    return f"{link}?tag={tag}" if tag else link
+    tag = s.get("affiliate_tag")   # the tag itself is never changed or removed from config
+    return f"{link}?tag={tag}" if affiliate_on(s) else link
 
 
 DEFAULT_TAGS = {
@@ -517,7 +525,7 @@ def send_deal(caption, image_url, card, link, handle):
 
 
 # ---------- memory of what was already posted ----------
-SCRIPT_VERSION = "2026-11-22-v4 (categories + weekly digest/poll, dry-run)"
+SCRIPT_VERSION = "2026-11-22-v5 (facebook + split 10/10 + growth mode, dry-run)"
 
 
 def load_seen():
@@ -566,6 +574,148 @@ def paged(url, page):
     return f"{url}{sep}page={page}"
 
 
+DEFAULT_DISCLOSURE = (
+    "💡 بعض الروابط روابط تسويق بالعمولة. "
+    "As an Amazon Associate I earn from qualifying purchases."
+)
+
+
+def alert_owner(text, live):
+    """Private heads-up to the owner (TELEGRAM_CHAT_ID), never to the channel."""
+    if live and TOKEN and CHAT_ID:
+        _post("sendMessage", {"chat_id": CHAT_ID, "text": text})
+    else:
+        print(f"[alert] (dry-run / no private chat) would tell the owner: {text}")
+
+
+def _recent_iso(ts, days):
+    try:
+        return (datetime.now(timezone.utc) - datetime.fromisoformat(ts)).days < days
+    except (TypeError, ValueError):
+        return False
+
+
+def already_posted(asin, price, seen, posted, s):
+    """Per-platform dedupe. Telegram: seen.json (unchanged system, price-drop rule
+    kept) + the dry-run simulation log. Facebook: its own log. A deal posted on
+    either platform within repost_after_days is not offered to the other one."""
+    prev = seen["asins"].get(asin)
+    if (
+        prev
+        and is_recent(prev["t"], s["repost_after_days"])
+        and price > prev["price"] * (1 - s["repost_min_drop"])
+    ):
+        return True
+    for platform in ("telegram", "facebook"):
+        if _recent_iso(posted.get(platform, {}).get(asin), s["repost_after_days"]):
+            return True
+    return False
+
+
+def publish_telegram(deals, ctx):
+    s, tz, seen = ctx["s"], ctx["tz"], ctx["seen"]
+    failures = 0
+    for d in deals:
+        if failures >= 3:
+            print("[telegram] stopping after 3 failures")
+            break
+        now_l = datetime.now(tz)
+        if (
+            weekly.in_quiet_hours(now_l, s.get("quiet_hours"))
+            or ctx["base_tg"] + ctx["tg_added"] >= s["max_alerts_per_day"]
+        ):
+            d["cand"]["deferred"] = True
+            print(f"[defer] {d['asin']} (telegram): quiet hours / daily cap -> waits for the weekly digest")
+            continue
+        caption = build_caption(
+            d["title"], d["price"], d["list_price"], d["discount"], d["s_deal"],
+            tags_for(d["source"], s), d["info"], d["cat"],
+        )
+        # dry-run: no image download/upload at all
+        card = None if DRY_RUN else make_card_bytes(
+            d["image"], d["discount"], d["price"], d["list_price"], d["s_deal"]
+        )
+        mode = send_deal(caption, d["image"], card, d["link"], s.get("channel_handle", ""))
+        print(f"[post][telegram] {d['asin']} mode={mode} | {d['title'][:60]}")
+        if DRY_RUN:   # simulated: remember only in the dry-run log, never in seen.json
+            ctx["posted_new"]["telegram"][d["asin"]] = weekly._iso(now_l)
+            ctx["tg_added"] += 1
+            continue
+        if mode in ("failed", "none"):
+            failures += 1   # not remembered, will retry next run
+            continue
+        now = time.time()
+        seen["asins"][d["asin"]] = {"price": d["price"], "t": now}
+        seen["fps"][d["fp"]] = now
+        save_seen(seen)     # remember immediately, even if the run dies later
+        ctx["tg_added"] += 1
+        lo, hi = s["delay_between_posts"]
+        wait = random.uniform(lo, hi)
+        print(f"   waiting {wait:.0f}s before the next one")
+        time.sleep(wait)
+
+
+def publish_facebook(deals, ctx):
+    s, tz = ctx["s"], ctx["tz"]
+    if not deals:
+        return
+    creds, fb_dry, today = ctx["fb_creds"], ctx["fb_dry"], ctx["today"]
+    meta = ctx["st0"].get("facebook", {})
+
+    # token health: once per day, before the first post of the day
+    chk = meta.get("token_check") or {}
+    if chk.get("date") == today and chk.get("valid") is not None:
+        valid = chk["valid"]
+    else:
+        res = fbp.validate_facebook_token(creds, s, fb_dry, print)
+        valid = res["valid"]
+        if not fb_dry:   # a simulated check must never be cached as a real one
+            ctx["fb_meta"]["token_check"] = {"date": today, "valid": valid, "error_code": res.get("error_code")}
+        if res.get("missing_scopes"):
+            print(f"[facebook] WARNING token lacks scopes: {res['missing_scopes']}")
+
+    def stop_for_bad_token():
+        print("[facebook] token invalid/expired -> Facebook posting stopped (Telegram unaffected)")
+        if not fb_dry:
+            ctx["fb_meta"]["token_check"] = {"date": today, "valid": False, "error_code": 190}
+        if meta.get("alert_date") != today:
+            alert_owner("⚠️ توكن صفحة الفيسبوك محتاج يتجدد - نشر الفيسبوك واقف والتليجرام شغال عادي.",
+                        not fb_dry)
+            ctx["fb_meta"]["alert_date"] = today
+
+    if not valid:
+        stop_for_bad_token()
+        return
+
+    disclosure = s.get("affiliate_disclosure") or DEFAULT_DISCLOSURE
+    for d in deals:
+        now_l = datetime.now(tz)
+        if (
+            weekly.in_quiet_hours(now_l, s.get("quiet_hours"))
+            or ctx["base_fb"] + ctx["fb_added"] >= s["fb_max_per_day"]
+        ):
+            d["cand"]["deferred"] = True
+            print(f"[defer] {d['asin']} (facebook): quiet hours / daily cap -> waits for the weekly digest")
+            continue
+        text = fbf.format_facebook_post(d, s, affiliate_on(s), disclosure)
+        mode = fbp.post_deal_to_facebook(d, text, s, creds, None, fb_dry, print)
+        print(f"[post][facebook] {d['asin']} mode={mode} | {d['title'][:60]}")
+        if mode == "token_error":
+            stop_for_bad_token()
+            return
+        # ONE attempt per deal: even a failed/unclear post is remembered so it is
+        # never retried (a retry could double-post). Never moved to Telegram.
+        # (a simulated post is remembered only in the dry-run state file, so it can
+        # never block a real Telegram/Facebook post when another platform is live)
+        if not fb_dry or ctx["record_sim"]:
+            ctx["posted_new"]["facebook"][d["asin"]] = weekly._iso(now_l)
+            if mode != "failed":
+                ctx["fb_added"] += 1
+        if not fb_dry:
+            lo, hi = s["fb_delay_between_posts"]
+            time.sleep(random.uniform(lo, hi))
+
+
 def main():
     config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
     s = {
@@ -573,15 +723,21 @@ def main():
         "suspicious_discount": 90,
         "min_list_price": 1000,
         "pages_per_source": 3,
-        "max_alerts_per_run": 10,
+        "telegram_per_run": 10,     # per run: 10 for Telegram + 10 for Facebook,
+        "fb_per_run": 10,           # never the same ASIN on both
         "only_sold_by_amazon": False,        # True = Amazon as seller only
         "require_shipped_by_amazon": True,   # never post items not shipped by Amazon
         "max_product_checks": 80,            # cap product-page lookups per run
         "delay_between_posts": [30, 40],
+        "fb_delay_between_posts": [5, 10],
         "dry_run": True,            # GLOBAL LOCK: nothing is published until false
         "weekly_live": False,       # weekly digest/pin/poll; also needs dry_run=false
+        "growth_mode": True,        # links WITHOUT the affiliate tag (tag stays in config)
+        "facebook_show_prices": False,   # scraped prices are not shown on Facebook
+        "fb_graph_version": "v27.0",
+        "fb_max_per_day": 10,
         "timezone": "Africa/Cairo",
-        "max_alerts_per_day": 10,   # daily cap on individual posts
+        "max_alerts_per_day": 10,   # daily cap on individual Telegram posts
         "quiet_hours": None,        # {"start": "00:00", "end": "09:00"} = no posting
         "repost_after_days": 14,   # never repost the same product before this...
         "repost_min_drop": 0.10,   # ...unless its price fell by at least this much
@@ -593,17 +749,28 @@ def main():
     cats.validate(categories)
     config["categories"] = categories
     tz = weekly.tz_of(s["timezone"])
+
+    fb_creds = fbp.creds_from_env()
+    fb_dry = DRY_RUN or fbp.fb_dry_run() or not fbp.creds_complete(fb_creds, need_app=True)
+    if not DRY_RUN and not fbp.fb_dry_run() and fb_dry:
+        print("[facebook] FB_DRY_RUN=false but FB_* secrets are incomplete -> staying in dry-run")
+    tg_live = (not DRY_RUN) and bool(TOKEN) and bool(CHANNEL_ID or CHAT_ID)
     weekly_live = (not DRY_RUN) and bool(s["weekly_live"]) and bool(TOKEN) and bool(CHANNEL_ID)
-    state_file = botstate.state_path(BASE, weekly_live)   # prod vs dry-run state
+    any_live = tg_live or weekly_live or not fb_dry
+    state_file = botstate.state_path(BASE, any_live)   # prod vs dry-run state
     print(f"scanner version: {SCRIPT_VERSION}")
     print(
-        f"mode: dry_run={DRY_RUN} weekly_live={weekly_live} state={state_file.name} "
-        f"tz={s['timezone']} daily_cap={s['max_alerts_per_day']} quiet={s['quiet_hours']}"
+        f"mode: dry_run={DRY_RUN} telegram_live={tg_live} facebook_live={not fb_dry} "
+        f"weekly_live={weekly_live} growth_mode={s['growth_mode']} state={state_file.name}"
     )
     print(
-        f"settings: min_discount={s['min_discount']} max_alerts={s['max_alerts_per_run']} "
+        f"limits: per_run telegram={s['telegram_per_run']} facebook={s['fb_per_run']} | "
+        f"daily telegram={s['max_alerts_per_day']} facebook={s['fb_max_per_day']} | "
+        f"quiet={s['quiet_hours']} tz={s['timezone']} | min_discount={s['min_discount']}"
+    )
+    print(
         f"handle={s.get('channel_handle') or '(none)'} logo={'yes' if LOGO_FILE.exists() else 'MISSING'} "
-        f"channel={'set' if CHANNEL_ID else 'NOT SET'}"
+        f"channel={'set' if CHANNEL_ID else 'NOT SET'} links={'affiliate-tagged' if affiliate_on(s) else 'plain (no tag)'}"
     )
     seller_cache = {}
     live_cache = {}
@@ -613,13 +780,26 @@ def main():
     st0 = botstate.load(state_file)
     cands = {a: dict(c) for a, c in st0["candidates"].items()}   # no prices inside
     today = datetime.now(tz).date().isoformat()
-    base_daily = weekly.daily_count(st0, today)
-    daily_added = 0
+    ctx = {
+        "s": s, "tz": tz, "seen": seen, "st0": st0, "today": today,
+        "fb_creds": fb_creds, "fb_dry": fb_dry,
+        "base_tg": weekly.daily_count(st0, today),
+        "base_fb": weekly.daily_count(st0, today, "facebook"),
+        "record_sim": not any_live,
+        "tg_added": 0, "fb_added": 0,
+        "posted_new": {"telegram": {}, "facebook": {}}, "fb_meta": {},
+    }
     print(f"loaded memory: {len(seen['asins'])} products already posted")
 
-    alerts, scanned, failures, pages_tried, post_failures = 0, 0, 0, 0, 0
+    per_run_total = s["telegram_per_run"] + s["fb_per_run"]
+    pending = []     # deals collected this run (up to 20), published after the scan
+    scanned, failures, pages_tried = 0, 0, 0
     for source in config["sources"]:
+        if len(pending) >= per_run_total:
+            break
         for page in range(1, s["pages_per_source"] + 1):
+            if len(pending) >= per_run_total:
+                break
             url = paged(source, page)
             pages_tried += 1
             try:
@@ -646,14 +826,9 @@ def main():
                 )
                 if cand.get("deferred"):
                     continue  # over the cap / quiet hours earlier: waits for the weekly digest
-                prev = seen["asins"].get(asin)
-                if (
-                    prev
-                    and is_recent(prev["t"], s["repost_after_days"])
-                    and price > prev["price"] * (1 - s["repost_min_drop"])
-                ):
-                    continue  # already posted; no real new price drop
-                if alerts >= s["max_alerts_per_run"] or post_failures >= 3:
+                if already_posted(asin, price, seen, st0["posted"], s):
+                    continue  # posted on a platform recently (no real new price drop)
+                if len(pending) >= per_run_total or any(p["asin"] == asin for p in pending):
                     continue
                 info = None
                 s_deal = s
@@ -704,45 +879,33 @@ def main():
                 if fp in seen["fps"] and is_recent(seen["fps"][fp], s["repost_after_days"]):
                     print(f"[dup] {asin}: same product/variant already posted -> skipped")
                     continue
-                if (
-                    weekly.in_quiet_hours(datetime.now(tz), s.get("quiet_hours"))
-                    or base_daily + daily_added >= s["max_alerts_per_day"]
-                ):
-                    cand["deferred"] = True
-                    print(f"[defer] {asin}: quiet hours / daily cap -> waits for the weekly digest")
-                    continue
-                caption = build_caption(
-                    title, price, list_price, discount, s_deal, tags_for(source, s), info, cat
-                )
-                # dry-run: no image download/upload at all
-                card = None if DRY_RUN else make_card_bytes(image, discount, price, list_price, s_deal)
-                mode = send_deal(
-                    caption, image, card, product_link(asin, s), s.get("channel_handle", "")
-                )
-                print(f"[post] {asin} mode={mode} | {title[:60]}")
-                if DRY_RUN:
-                    alerts += 1          # simulated: counts toward the caps only,
-                    daily_added += 1     # nothing is remembered in seen.json
-                    continue
-                if mode in ("failed", "none"):
-                    post_failures += 1  # not remembered, will retry next run
-                    continue
-                now = time.time()
-                seen["asins"][asin] = {"price": price, "t": now}
-                seen["fps"][fp] = now
-                save_seen(seen)  # remember immediately, even if the run dies later
-                alerts += 1
-                daily_added += 1
-                # space posts out so the channel isn't flooded all at once
-                lo, hi = s["delay_between_posts"]
-                wait = random.uniform(lo, hi)
-                print(f"   waiting {wait:.0f}s before the next one")
-                time.sleep(wait)
+                pending.append({
+                    "asin": asin, "title": title, "price": price, "list_price": list_price,
+                    "discount": discount, "image": image, "link": product_link(asin, s),
+                    "cat": cat, "info": info, "source": source, "fp": fp,
+                    "s_deal": s_deal, "cand": cand,
+                })
             time.sleep(random.uniform(4, 9))
 
+    # ---- split (no overlap), then one publisher per platform: a failure in one
+    # never stops the other, and a failed deal is never moved to the other platform
+    tg_list, fb_list = splitter.split_deals(
+        pending, s["telegram_per_run"], s["fb_per_run"]
+    )
+    print(f"[split] collected {len(pending)} deals -> Telegram {len(tg_list)} / Facebook {len(fb_list)}")
+    for name, fn, lst in (("telegram", publish_telegram, tg_list), ("facebook", publish_facebook, fb_list)):
+        try:
+            fn(lst, ctx)
+        except Exception:
+            print(f"[{name}] ERROR (other platform unaffected):\n" + traceback.format_exc())
+
     save_seen(seen)
-    try:   # collected candidates + daily counter (separate file; seen.json untouched)
-        weekly.flush_scan_state(state_file, cands, today, daily_added, datetime.now(tz))
+    try:   # collected candidates + counters (separate file; seen.json untouched)
+        weekly.flush_scan_state(
+            state_file, cands, today, ctx["tg_added"], datetime.now(tz),
+            extra={"posted": ctx["posted_new"], "fb_added": ctx["fb_added"],
+                   "facebook_meta": ctx["fb_meta"]},
+        )
         client = weekly.make_client(weekly_live, TOKEN, print)
         status = weekly.run_weekly(
             config, {**s, "channel_id": CHANNEL_ID}, state_file=state_file,
@@ -752,7 +915,10 @@ def main():
         print(f"[weekly] status: {status}")
     except Exception:  # the weekly job must never break the scan
         print("[weekly] ERROR (scan unaffected):\n" + traceback.format_exc())
-    print(f"Scanned {scanned} items, sent {alerts} alerts, {failures} failed pages")
+    print(
+        f"Scanned {scanned} items, collected {len(pending)}, "
+        f"telegram {ctx['tg_added']}, facebook {ctx['fb_added']}, {failures} failed pages"
+    )
     if pages_tried and failures == pages_tried:
         sys.exit(1)
 

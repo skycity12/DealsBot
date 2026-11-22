@@ -36,6 +36,14 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          # CHANGED: Facebook secrets (add them under Settings > Secrets yourself).
+          # FB_DRY_RUN stays "true" until YOU decide otherwise; the bot also stays
+          # in dry-run while scanner_config.json has dry_run=true.
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
+          FB_DRY_RUN: ${{ secrets.FB_DRY_RUN || 'true' }}
         run: python -u scanner.py          # CHANGED: -u so logs appear live
       - name: Save memory of posted deals (seen.json + bot state)
         if: always()
