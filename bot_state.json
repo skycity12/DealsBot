@@ -1,5 +1,50 @@
 {
  "candidates": {
+  "B005FDOU8A": {
+   "amazon_sold": null,
+   "asin": "B005FDOU8A",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:16:44+00:00",
+   "last_seen": "2026-11-22T20:16:44+00:00",
+   "name": "ساعة بسوار من الجلد ومينا بلون فضي للرجال من كاسيو - MTP-1314L-8AVDF، أنالوج",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B00AFTTQQ0": {
+   "amazon_sold": null,
+   "asin": "B00AFTTQQ0",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:16:29+00:00",
+   "last_seen": "2026-11-22T20:16:29+00:00",
+   "name": "FOSSIL Grant Watch for Men, Quartz Chronograph Movement with Leather and Stainless Steel Strap",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B00E4NNCZO": {
+   "amazon_sold": null,
+   "asin": "B00E4NNCZO",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:03+00:00",
+   "last_seen": "2026-11-22T20:17:03+00:00",
+   "name": "ساعة جرانت جلد متعددة الوظائف بمينا للرجال من فوسيل, أزرق، انالوج",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
   "B00GRRIZK2": {
    "amazon_sold": null,
    "asin": "B00GRRIZK2",
@@ -9,7 +54,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:25+00:00",
-   "last_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T20:16:17+00:00",
    "name": "ساعة للرجال بمينا وسوار ستانلس ستيل من كاسيو MTP-1374D-1AVDF, فضي، انالوج",
    "seller": null,
    "shipped_by_amazon": null,
@@ -24,7 +69,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:19:56+00:00",
-   "last_seen": "2026-11-22T18:19:56+00:00",
+   "last_seen": "2026-11-22T20:15:40+00:00",
    "name": "سماعة رأس سلكية للموبايلات الذكية مع ميكروفون من سوني، لون أبيض، صوت باس قوي، مقاس واحد، MDR-ZX110AP",
    "seller": null,
    "shipped_by_amazon": null,
@@ -39,8 +84,23 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:34+00:00",
-   "last_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T20:16:24+00:00",
    "name": "Casio Watch",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B015QFJ4IC": {
+   "amazon_sold": null,
+   "asin": "B015QFJ4IC",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:24+00:00",
+   "last_seen": "2026-11-22T20:17:24+00:00",
+   "name": "جهاز طهي اكسترا شيف بلس متعدد الاستخدامات من ديلونجي، رمادي وأبيض - ‎FH1396/1، 4.0 لتر، 1.0 واط",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
@@ -54,8 +114,23 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:25+00:00",
-   "last_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T20:16:17+00:00",
    "name": "ساعة كاسيو للرجال بمينا باللون الاسود وسوار من الراتنج - MW-240-2B، انالوج بعقارب، كوارتز",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B01LY42KGJ": {
+   "amazon_sold": null,
+   "asin": "B01LY42KGJ",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:31+00:00",
+   "last_seen": "2026-11-22T20:17:31+00:00",
+   "name": "مقلاة اكسترا شيف بلس متعددة الاستخدامات من ديلونجي - اسود (ضمان دولي)",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
@@ -69,8 +144,38 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:34+00:00",
-   "last_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T20:16:24+00:00",
    "name": "ساعة ستاندارت للرجال بمينا وسوار جلد من كاسيو MTP-V300L-7AUDF، تناظري",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B079D9Q8GQ": {
+   "amazon_sold": null,
+   "asin": "B079D9Q8GQ",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:16:58+00:00",
+   "last_seen": "2026-11-22T20:16:58+00:00",
+   "name": "ساعة رسمية للرجال من فوسيل, أسود، انالوج",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B07B3VZLBX": {
+   "amazon_sold": null,
+   "asin": "B07B3VZLBX",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:16:50+00:00",
+   "last_seen": "2026-11-22T20:16:50+00:00",
+   "name": "تومي هيليفيغر ساعة كوارتز انالوج متعددة الوظائف للرجال بسوار سيليكون او ستانلس ستيل او جلد ومينا فرعية لليوم والتاريخ، مقا...",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
@@ -84,7 +189,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:20+00:00",
-   "last_seen": "2026-11-22T18:20:20+00:00",
+   "last_seen": "2026-11-22T20:16:11+00:00",
    "name": "ساعة انتايسر زرقاء كاجوال انالوج بعقارب مصنوعة من الستانلس ستيل كاسيو موديل MTP-VD01D-2BV للرجال",
    "seller": null,
    "shipped_by_amazon": null,
@@ -114,11 +219,41 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:25+00:00",
-   "last_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T20:16:17+00:00",
    "name": "ساعة كاسيو للرجال بمينا اسود وسوار من الستانلس ستيل - MTP-VD01D-1EVUDF",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
+  },
+  "B07R7CMQT8": {
+   "amazon_sold": null,
+   "asin": "B07R7CMQT8",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:16:44+00:00",
+   "last_seen": "2026-11-22T20:16:44+00:00",
+   "name": "ساعة يد ستانلس ستيل للرجال من كاسيو، MTP-VT01D-7BUDF, MTP-VT01D-7BUDF، انالوج، بمينا فضي",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B07WC5V4QN": {
+   "amazon_sold": true,
+   "asin": "B07WC5V4QN",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:39+00:00",
+   "last_seen": "2026-11-22T20:17:39+00:00",
+   "name": "عطر او دي بارفان من مجموعة سوبريماسي من افنان، 100 مل",
+   "seller": null,
+   "shipped_by_amazon": true,
+   "verified": true
   },
   "B07ZW91L56": {
    "amazon_sold": null,
@@ -129,7 +264,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:25+00:00",
-   "last_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T20:16:17+00:00",
    "name": "Casio Analog Watch: MTP-VD01 Men",
    "seller": null,
    "shipped_by_amazon": null,
@@ -144,8 +279,23 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:34+00:00",
-   "last_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T20:16:24+00:00",
    "name": "ساعة كاسيو بمينا دائري وسوار من الستانلس ستيل للرجال MTP-V006D-7B2UDF، انالوج",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B086PKMZ21": {
+   "amazon_sold": null,
+   "asin": "B086PKMZ21",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:15:40+00:00",
+   "last_seen": "2026-11-22T20:15:40+00:00",
+   "name": "سماعة فوق الأذن سلكي للرأس للالعاب بلاك شارك V2 X من ريزر - موديل RZ04-03240100-R3M1 - لون اسود",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
@@ -159,8 +309,38 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:34+00:00",
-   "last_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T20:16:24+00:00",
    "name": "ساعة من كاسيو للرجال، بمينا سوداء وسوار فضي، عرض تناظري",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B08WJLFPKN": {
+   "amazon_sold": null,
+   "asin": "B08WJLFPKN",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:39+00:00",
+   "last_seen": "2026-11-22T20:17:39+00:00",
+   "name": "برفان سبراي فينتاج للرجال من زاك - 175 مل",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B098TZVVF7": {
+   "amazon_sold": null,
+   "asin": "B098TZVVF7",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:08+00:00",
+   "last_seen": "2026-11-22T20:17:08+00:00",
+   "name": "مقلاة عميقة من بلاك اند ديكر، 12 لتر - AOF100-B5 - جهد إمداد 220 فولت و50 هرتز، فضي، 1800.0 واط",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
@@ -174,8 +354,143 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:19:56+00:00",
-   "last_seen": "2026-11-22T18:19:56+00:00",
+   "last_seen": "2026-11-22T20:15:40+00:00",
    "name": "ريزر بلاك شارك V2 X - سماعات رأس سلكية مع مشغلات 50 ملم خاصية الغاء الضوضاء لاجهزة الكمبيوتر ماك وبلاي ستيشن4 اكس بوكس وان و سويتش اخضر",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B09QFYNJMB": {
+   "amazon_sold": null,
+   "asin": "B09QFYNJMB",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:15:40+00:00",
+   "last_seen": "2026-11-22T20:15:40+00:00",
+   "name": "سماعة V2 على الاذن سلكي رأس بلاك شارك v2 X متعددة المنصات بسلك من رازر للرياضات الالكترونية مشغلات تريفورس 50 ملم وخاصية الغار الضوضاء المتطورة وصوت محيطي 7.1 وميكروفون التقاط قلبي هايبر كلير أبيض",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B09QV9VDPF": {
+   "amazon_sold": null,
+   "asin": "B09QV9VDPF",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:03+00:00",
+   "last_seen": "2026-11-22T20:17:03+00:00",
+   "name": "دانيال ولينغتون ساعة كوادرو ميلروز بسوار شبكي ذهبي وردي، 20 × 26 ملم، تناظري",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B09QXPSJKP": {
+   "amazon_sold": null,
+   "asin": "B09QXPSJKP",
+   "category": "أجهزة منزلية",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:24+00:00",
+   "last_seen": "2026-11-22T20:17:24+00:00",
+   "name": "ورق زبدة للمقلاة الهوائية، 100 قطعة من ورق خبز منزلي بلون طبيعي مقاوم للالتصاق ‎16 سم، ورق زيت دائري للاستعمال مرة واحدة، ورق بطانات للفرن والمقلاة الهوائية والخبز والتحميص والميكروويف",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B09YKYJX7Y": {
+   "amazon_sold": null,
+   "asin": "B09YKYJX7Y",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:15:50+00:00",
+   "last_seen": "2026-11-22T20:15:50+00:00",
+   "name": "سماعات بلوتوث لاسلكية داخل الاذن WI-C100 مع ميكروفون مدمج، لون ابيض، مقاس S من سوني",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0B6HV8G94": {
+   "amazon_sold": null,
+   "asin": "B0B6HV8G94",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:45+00:00",
+   "last_seen": "2026-11-22T20:17:45+00:00",
+   "name": "ريل مان سينت او دي بارفان بيور سبايسي 100 مل، للرجال",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0B6RRP6Z8": {
+   "amazon_sold": null,
+   "asin": "B0B6RRP6Z8",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:39+00:00",
+   "last_seen": "2026-11-22T20:17:39+00:00",
+   "name": "عطر ريلمان سينت بيور وود من فوج، 100 مل",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0BBDF2GCH": {
+   "amazon_sold": null,
+   "asin": "B0BBDF2GCH",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:45+00:00",
+   "last_seen": "2026-11-22T20:17:45+00:00",
+   "name": "او دو كولونيا تويست بيريز من لونا، سعة 250 مل",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0BHRHR1GR": {
+   "amazon_sold": null,
+   "asin": "B0BHRHR1GR",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:39+00:00",
+   "last_seen": "2026-11-22T20:17:39+00:00",
+   "name": "عطر سينت وود للرجال من فوج - او دي بارفان - 100 مل",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0BHRJPT6F": {
+   "amazon_sold": null,
+   "asin": "B0BHRJPT6F",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:45+00:00",
+   "last_seen": "2026-11-22T20:17:45+00:00",
+   "name": "فوغ عطر اورينتال للرجال من سينت - او دي بارفان - 50 مل",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
@@ -189,7 +504,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:04+00:00",
-   "last_seen": "2026-11-22T18:20:04+00:00",
+   "last_seen": "2026-11-22T20:15:50+00:00",
    "name": "سماعة راس سلكية للالعاب من هايبر اكس كلاود III للكمبيوتر وبلاي ستيشن 5 واكس بوكس سلسلة X|S مشغلات بزاوية 53 ملم دي تي اس ميموري فوم اطار متين ميكروفون فائق الوضوح 10 ملم USB-C USB-A 3.5 ملم اسود/احمر",
    "seller": null,
    "shipped_by_amazon": null,
@@ -204,8 +519,53 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:19:56+00:00",
-   "last_seen": "2026-11-22T18:19:56+00:00",
+   "last_seen": "2026-11-22T20:15:40+00:00",
    "name": "سماعات ساوند كور من انكر، سبيس ون، بخاصية الغاء الضوضاء النشطة، تقليل الصوت اقوى مرتين، وقت تشغيل ايه ان سي 40 ساعة، تحكم في التطبيق، صوت لاسلكي عالي الدقة ال دي ايه سي، ملاءمة مريحة، بلوتوث 5.3",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0CFW266GT": {
+   "amazon_sold": null,
+   "asin": "B0CFW266GT",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:45+00:00",
+   "last_seen": "2026-11-22T20:17:45+00:00",
+   "name": "ماء الذهب أورينتست N195 روزيز فانيل مانسيرا أو دي بارفيوم للنساء 50 مل",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0CGZYSP69": {
+   "amazon_sold": null,
+   "asin": "B0CGZYSP69",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:08+00:00",
+   "last_seen": "2026-11-22T20:17:08+00:00",
+   "name": "مقلاة هوائية من بلاك اند ديكر - 1500 واط رقمية 4 لتر للقلي أو الخبز الشواء التحميص AF4037، أسود",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0CHMMVHQL": {
+   "amazon_sold": null,
+   "asin": "B0CHMMVHQL",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:15:57+00:00",
+   "last_seen": "2026-11-22T20:15:57+00:00",
+   "name": "سماعات رأس لاسلكية فوق الأذن لايف 770NC من جيه بي ال مع خاصية الغاء الضوضاء التكيفية الحقيقية، أزرق",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
@@ -279,8 +639,23 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:19:56+00:00",
-   "last_seen": "2026-11-22T18:19:56+00:00",
+   "last_seen": "2026-11-22T20:15:40+00:00",
    "name": "سماعات رأس بوسائد داخل الأذن ريدمي بودز 6 بلاي بتشغيل بطارية 36 ساعة و4 إعدادات موازن صوت وإلغاء ضوضاء بذكاء اصطناعي لمكالمات وبلوتوث 5.4 وشحن سريع لتشغيل موسيقى لـ 3 ساعات في 10 دقائق من شاومي، بينك",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0DC6BBRKW": {
+   "amazon_sold": null,
+   "asin": "B0DC6BBRKW",
+   "category": "أجهزة منزلية",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:08+00:00",
+   "last_seen": "2026-11-22T20:17:08+00:00",
+   "name": "قلاية هوائية سعة 8 لتر - طاقة 1700 وات، سلة واسعة، تحكم رقمي باللمس، 7 وظائف مضبوطة مسبقًا، الحمل الحراري السريع - مثالية للوجبات الكبيرة والطهي بدون دخان من بلاك اند ديكير SAF80W-B5، 1700.0 واط، أسود",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
@@ -309,7 +684,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:25+00:00",
-   "last_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T20:16:17+00:00",
    "name": "ساعة JR-FC2 برو بشاشة عالية الدقة 1.46 بوصة ومكالمات بالبلوتوث وأكثر من 120 وضع رياضي ومقاومة للماء 10 ضغط جوي ومتابعة نبض...",
    "seller": null,
    "shipped_by_amazon": null,
@@ -324,8 +699,53 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:25+00:00",
-   "last_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T20:16:17+00:00",
    "name": "ساعة يد ذكية رقمية للأطفال مقاومة للماء بشاشة ليد وسوار بتصميم شخصيات كرتونية ملونة بنمط الأبطال الخارقين للأولاد والبنات بعمر 2 -12 سنة، هدية عيد ميلاد، متعددة الألوان، (لون أحمر سبايدرمان)",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0F6LTDN2Z": {
+   "amazon_sold": null,
+   "asin": "B0F6LTDN2Z",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:16:05+00:00",
+   "last_seen": "2026-11-22T20:16:05+00:00",
+   "name": "ساعة اورا | اسود بالكامل | ساعة انالوج بسيطة | ارقام عربية | بدون وزن | ساعة معصم شائعة.",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0F99K7DS9": {
+   "amazon_sold": null,
+   "asin": "B0F99K7DS9",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:17+00:00",
+   "last_seen": "2026-11-22T20:17:17+00:00",
+   "name": "نينجا مقلاة هوائية محمولة من كريسبي، 3.8 لتر، 4 في 1: مقلاة هوائية، تحميص | تدفئة مقرمشة، تصميم صغير موفر للمساحة، 2 صينية...",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0FG1XQHJP": {
+   "amazon_sold": null,
+   "asin": "B0FG1XQHJP",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:17:24+00:00",
+   "last_seen": "2026-11-22T20:17:24+00:00",
+   "name": "مقلاة هوائية متعددة الوظائف تعمل باللمس سعة 6 لتر 2400 واط اسود + قطعتان من بطانة مقلاة هوائية دائرية من السيليكون قابلة لاعادة الاستخدام 16 سم",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
@@ -354,7 +774,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:34+00:00",
-   "last_seen": "2026-11-22T18:20:34+00:00",
+   "last_seen": "2026-11-22T20:16:24+00:00",
    "name": "انفنيكس اكس ووتش H4 (XW4L) - ازرق داكن، شاشة لمس كاملة HD 5.18 سم، مقاومة للماء IP68، استخدام عادي لمدة 10 ايام",
    "seller": null,
    "shipped_by_amazon": null,
@@ -369,7 +789,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:25+00:00",
-   "last_seen": "2026-11-22T18:20:25+00:00",
+   "last_seen": "2026-11-22T20:16:24+00:00",
    "name": "Infinix XWatch H4 (XW4L)-Titanium Grey,2.04\" full touch HD screen, IP68 Waterproof, 10 days Normal u",
    "seller": null,
    "shipped_by_amazon": null,
@@ -384,7 +804,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:19:12+00:00",
-   "last_seen": "2026-11-22T18:19:12+00:00",
+   "last_seen": "2026-11-22T20:15:02+00:00",
    "name": "مجموعة حزام بمشبك لتثبيت الموبايل المحمول وكاميرا اكشن على الصدر",
    "seller": null,
    "shipped_by_amazon": null,
@@ -414,7 +834,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:20+00:00",
-   "last_seen": "2026-11-22T18:20:20+00:00",
+   "last_seen": "2026-11-22T20:16:11+00:00",
    "name": "ساعة يد ذكية رقمية مقاومة للماء بشاشة ليد للأطفال، ساعة بتصميم شخصيات كرتونية ملونة بنمط الأبطال الخارقين للأطفال من الجنسين، مناسبة من 2 -12 سنة، متعددة الألوان (متعددة الألوان)، نمط سبايدرمان أسود",
    "seller": null,
    "shipped_by_amazon": null,
@@ -429,7 +849,7 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:18:55+00:00",
-   "last_seen": "2026-11-22T18:18:55+00:00",
+   "last_seen": "2026-11-22T20:14:43+00:00",
    "name": "موبايل ذكي سامسونج جالكسي A57 أندرويد بشبكة جيل خامس 5G ومساحة تخزين 512GB وذاكرة رام 12GB و6 ترقيات لنظام التشغيل وشاشة كبيرة وكاميرا 50MP ومدة تشغيل بطارية طويلة، إصدار محلي، أزرق داكن (Navy)",
    "seller": null,
    "shipped_by_amazon": null,
@@ -444,8 +864,23 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:19:12+00:00",
-   "last_seen": "2026-11-22T18:19:12+00:00",
+   "last_seen": "2026-11-22T20:15:02+00:00",
    "name": "سلسلة موبايل كروس، حبل موبايل معدني، حزام حبل موبايل عالمي لموبايل آيفون وسامسونج ومعظم الموبايلات الذكية، حزام موبايل كروس × 1، حزام معصم × 1، رقع حبل تعليق × 2، لون فضي",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0GWMQMBLS": {
+   "amazon_sold": null,
+   "asin": "B0GWMQMBLS",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:16:24+00:00",
+   "last_seen": "2026-11-22T20:16:44+00:00",
+   "name": "ساعة من JSYES للنساء بمينا متعدد الألوان وسوار ذهبي وردي بعرض رقمي موديل Ms5",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
@@ -459,8 +894,38 @@
    ],
    "deferred": false,
    "first_seen": "2026-11-22T18:20:20+00:00",
-   "last_seen": "2026-11-22T18:20:20+00:00",
+   "last_seen": "2026-11-22T20:16:11+00:00",
    "name": "ساعة كلاسيكية للرجال، اطار مربع اسود، سوار من الستانلس ستيل، عرض انالوج مع التاريخ، مقاومة للماء حتى عمق 30 متر، حركة كوارتز، تصميم انيق للمناسبات (اسود)",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0H96H7MLJ": {
+   "amazon_sold": null,
+   "asin": "B0H96H7MLJ",
+   "category": "متنوع",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:16:44+00:00",
+   "last_seen": "2026-11-22T20:16:44+00:00",
+   "name": "ساعة كرونوغراف كوارتز أنالوج للرجال، مينا أزرق كحلي مطفي، هيكل وسوار من الفولاذ المقاوم للصدأ، مقاومة للماء، مقاومة للخدش - أزرق كحلي وفضي، SF-h8486ME",
+   "seller": null,
+   "shipped_by_amazon": null,
+   "verified": null
+  },
+  "B0HJCVDKQK": {
+   "amazon_sold": null,
+   "asin": "B0HJCVDKQK",
+   "category": "أجهزة منزلية",
+   "days": [
+    "2026-11-22"
+   ],
+   "deferred": false,
+   "first_seen": "2026-11-22T20:15:33+00:00",
+   "last_seen": "2026-11-22T20:15:33+00:00",
+   "name": "جهاز تحكم عن بعد لتلفزيون تي سي ال الذكي اندرويد RC802V FNR1 FMR1 من ستراتج | جهاز تحكم عن بعد بديل متوافق مع تلفزيون تي س...",
    "seller": null,
    "shipped_by_amazon": null,
    "verified": null
