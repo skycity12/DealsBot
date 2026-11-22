@@ -48,14 +48,14 @@ class MainBase(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_main(self, settings=None, tg_fail=False, fb_fail=False, env=None):
+    def run_main(self, settings=None, tg_fail=False, fb_fail=False, env=None, fetch=None):
         self.cfg["settings"].update(settings or {})
         (self.dir / "scanner_config.json").write_text(json.dumps(self.cfg, ensure_ascii=False), encoding="utf-8")
         patches = [
             mock.patch.object(scanner, "BASE", self.dir),
             mock.patch.object(scanner, "CONFIG_FILE", self.dir / "scanner_config.json"),
             mock.patch.object(scanner, "SEEN_FILE", self.dir / "seen.json"),
-            mock.patch.object(scanner, "fetch_page", fake_fetch),
+            mock.patch.object(scanner, "fetch_page", fetch or fake_fetch),
             mock.patch.object(scanner.time, "sleep", lambda *_: None),
             mock.patch.object(scanner, "TOKEN", "FAKE"),
             mock.patch.object(scanner, "CHANNEL_ID", "@chan"),
@@ -70,11 +70,13 @@ class MainBase(unittest.TestCase):
         if fb_fail:
             patches.append(mock.patch.object(scanner, "publish_facebook", side_effect=RuntimeError("fb down")))
         buf = io.StringIO()
-        with contextlib.ExitStack() as st, contextlib.redirect_stdout(buf):
-            for p in patches:
-                st.enter_context(p)
-            scanner.main()
-        self.out = buf.getvalue()
+        try:
+            with contextlib.ExitStack() as st, contextlib.redirect_stdout(buf):
+                for p in patches:
+                    st.enter_context(p)
+                scanner.main()
+        finally:
+            self.out = buf.getvalue()
         sf = self.dir / "bot_state.dryrun.json"
         return json.loads(sf.read_text(encoding="utf-8")) if sf.exists() else None
 
@@ -125,6 +127,23 @@ class TestMainDryRun(MainBase):
         st = self.run_main({"max_alerts_per_day": 3, "fb_max_per_day": 2})
         self.assertEqual((len(st["posted"]["telegram"]), len(st["posted"]["facebook"])), (3, 2))
         self.assertEqual(self.out.count("[defer]"), 15)
+
+
+class TestEmptyPages(MainBase):
+    def test_block_pages_stop_the_run_early_and_are_explained(self):
+        blocked = "<html><head><title>Robot Check</title></head><body>captcha</body></html>"
+        self.cfg["sources"] = [f"https://www.amazon.eg/s?k=k{i}" for i in range(6)]
+        calls = []
+
+        def fetch(url, retries=4):
+            calls.append(url)
+            return blocked
+
+        with self.assertRaises(SystemExit):              # every page failed -> red run
+            self.run_main(fetch=fetch)
+        self.assertEqual(len(calls), 4)                  # stopped after 4, not 18 requests
+        self.assertIn("Robot Check", self.out)
+        self.assertIn("[stop] 4 empty pages in a row", self.out)
 
 
 class TestAffiliateOptIn(MainBase):
