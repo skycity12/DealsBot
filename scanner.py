@@ -672,14 +672,16 @@ def publish_facebook(deals, ctx):
     meta = ctx["st0"].get("facebook", {})
 
     # token health: once per day, before the first post of the day
+    # only a GOOD result is remembered for the day: a bad one is re-checked every
+    # run, so fixing the token takes effect immediately instead of tomorrow
     chk = meta.get("token_check") or {}
-    if chk.get("date") == today and chk.get("valid") is not None:
-        valid = chk["valid"]
+    if chk.get("date") == today and chk.get("valid") is True:
+        valid = True
     else:
         res = fbp.validate_facebook_token(creds, s, fb_dry, print)
         valid = res["valid"]
-        if not fb_dry:   # a simulated check must never be cached as a real one
-            ctx["fb_meta"]["token_check"] = {"date": today, "valid": valid, "error_code": res.get("error_code")}
+        if not fb_dry and valid:   # a simulated or failed check is never cached
+            ctx["fb_meta"]["token_check"] = {"date": today, "valid": True, "error_code": None}
         if res.get("reason"):
             print(f"[facebook] token check: {res['reason']}")
         if res.get("missing_scopes"):
@@ -687,8 +689,8 @@ def publish_facebook(deals, ctx):
 
     def stop_for_bad_token():
         print("[facebook] token invalid/expired -> Facebook posting stopped (Telegram unaffected)")
-        if not fb_dry:
-            ctx["fb_meta"]["token_check"] = {"date": today, "valid": False, "error_code": 190}
+        if not fb_dry:   # forget any cached "good" verdict
+            ctx["fb_meta"]["token_check"] = {"date": today, "valid": None, "error_code": 190}
         if meta.get("alert_date") != today:
             alert_owner("⚠️ توكن صفحة الفيسبوك محتاج يتجدد - نشر الفيسبوك واقف والتليجرام شغال عادي.",
                         not fb_dry)

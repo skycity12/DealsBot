@@ -48,7 +48,7 @@ class MainBase(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def run_main(self, settings=None, tg_fail=False, fb_fail=False, env=None, fetch=None):
+    def run_main(self, settings=None, tg_fail=False, fb_fail=False, env=None, fetch=None, net=None):
         self.cfg["settings"].update(settings or {})
         (self.dir / "scanner_config.json").write_text(json.dumps(self.cfg, ensure_ascii=False), encoding="utf-8")
         patches = [
@@ -65,6 +65,7 @@ class MainBase(unittest.TestCase):
             mock.patch.dict(os.environ, {"FB_PAGE_ID": "1", "FB_PAGE_ACCESS_TOKEN": "T",
                                          "FB_APP_ID": "2", "FB_APP_SECRET": "S", **(env or {})}),
         ]
+        patches += list(net or [])
         if tg_fail:
             patches.append(mock.patch.object(scanner, "publish_telegram", side_effect=RuntimeError("tg down")))
         if fb_fail:
@@ -144,6 +145,39 @@ class TestEmptyPages(MainBase):
         self.assertEqual(len(calls), 4)                  # stopped after 4, not 18 requests
         self.assertIn("Robot Check", self.out)
         self.assertIn("[stop] 4 empty pages in a row", self.out)
+
+
+class TestFacebookTokenCache(MainBase):
+    LIVE = {"dry_run": False, "telegram_per_run": 0, "fb_per_run": 1, "fb_max_per_day": 1}
+
+    def _net(self, token_type="PAGE"):
+        from datetime import datetime
+        dbg = mock.Mock(ok=True, status_code=200)
+        dbg.json.return_value = {"data": {"is_valid": True, "type": token_type, "profile_id": "1"}}
+        posted = mock.Mock(ok=True, status_code=200)
+        posted.json.return_value = {"id": "99"}
+        self.post_mock = mock.Mock(return_value=posted)
+        return [mock.patch("requests.get", return_value=dbg), mock.patch("requests.post", self.post_mock)]
+
+    def _seed_bad_cache(self):
+        import weekly
+        from datetime import datetime
+        today = datetime.now(weekly.tz_of("Africa/Cairo")).date().isoformat()
+        (self.dir / "bot_state.json").write_text(json.dumps(
+            {"facebook": {"token_check": {"date": today, "valid": False, "error_code": 190}}}), encoding="utf-8")
+
+    def test_a_bad_verdict_from_earlier_today_does_not_block_a_fixed_token(self):
+        self._seed_bad_cache()
+        self.run_main(self.LIVE, env={"FB_DRY_RUN": "false"}, net=self._net())
+        self.assertIn("[post][facebook]", self.out)
+        self.assertRegex(self.out, r"mode=(photo|feed)")   # fake product has no image -> feed
+        self.assertEqual(self.post_mock.call_count, 1)
+
+    def test_user_token_is_reported_with_a_reason_and_nothing_is_posted(self):
+        self._seed_bad_cache()
+        self.run_main(self.LIVE, env={"FB_DRY_RUN": "false"}, net=self._net("USER"))
+        self.assertIn("token check: FB_PAGE_ACCESS_TOKEN is a USER token", self.out)
+        self.assertEqual(self.post_mock.call_count, 0)
 
 
 class TestAffiliateOptIn(MainBase):
