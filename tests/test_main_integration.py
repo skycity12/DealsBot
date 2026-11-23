@@ -193,7 +193,8 @@ class TestWeeklyDisabled(MainBase):
         self.cfg["weekly"]["enabled"] = False
         st = self.run_main()
         self.assertIn("[weekly] status: disabled", self.out)
-        self.assertNotIn("weekly_sim", json.dumps(st) if st.get("weekly_sim") else "")
+        self.assertEqual(st["weekly_sim"]["weeks"], {})
+        self.assertEqual(st["weekly"]["weeks"], {})
 
 
 class TestEmptyPages(MainBase):

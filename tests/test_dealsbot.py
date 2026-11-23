@@ -18,6 +18,7 @@ import weekly  # noqa: E402
 
 CAIRO = ZoneInfo("Africa/Cairo")
 CONFIG = json.loads((ROOT / "scanner_config.json").read_text(encoding="utf-8"))
+CONFIG["weekly"]["enabled"] = True   # these tests exercise the job itself, whatever the repo switch says
 CATS = CONFIG["categories"]
 LINK = lambda asin: f"https://www.amazon.eg/dp/{asin}?tag=offershunte0f-21"  # noqa: E731
 
