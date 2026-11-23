@@ -17,7 +17,7 @@
     "dry_run": false,
     "weekly_live": false,
     "timezone": "Africa/Cairo",
-    "max_alerts_per_day": 10,
+    "max_alerts_per_day": 50,
     "quiet_hours": {
       "start": "00:00",
       "end": "00:00"
@@ -25,7 +25,7 @@
     "growth_mode": true,
     "telegram_per_run": 10,
     "fb_per_run": 10,
-    "fb_max_per_day": 10,
+    "fb_max_per_day": 20,
     "fb_delay_between_posts": [
       5,
       10
