@@ -17,7 +17,7 @@
     "dry_run": false,
     "weekly_live": false,
     "timezone": "Africa/Cairo",
-    "max_alerts_per_day": 50,
+    "max_alerts_per_day": 200,
     "quiet_hours": {
       "start": "00:00",
       "end": "00:00"
