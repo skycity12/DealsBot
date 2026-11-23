@@ -119,7 +119,7 @@ def fetch_page(url, retries=4):
                 # variants, all served with HTTP 200 (the old two-string test
                 # let most of them through and the parser then saw garbage)
                 if amazon_verify.looks_blocked(r.text):
-                    last = "CAPTCHA (blocked)"
+                    raise RuntimeError("CAPTCHA (blocked)")   # never retry a block
                 else:
                     return r.text
             else:
@@ -240,7 +240,14 @@ def cached_fulfillment(cand, s):
         return None
     if cand.get("shipped_by_amazon") is None:
         return None
-    if not _recent_iso(cand.get("last_seen"), s.get("recheck_seller_days", 7)):
+    # Age of the VERDICT itself (verified_at, written only when the product page
+    # was really fetched). last_seen cannot be used: weekly.touch() refreshes it
+    # just before this call, so the age was always ~0 and a verdict never expired.
+    if not cand.get("verified_at"):
+        # legacy entry from before verified_at existed: start its clock now
+        # (spreads re-checks over the week instead of one big burst)
+        cand["verified_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    if not _recent_iso(cand.get("verified_at"), s.get("recheck_seller_days", 7)):
         return None
     return {
         "amazon_sold": cand.get("amazon_sold"),
@@ -565,7 +572,7 @@ def send_deal(caption, image_url, card, link, handle):
 
 
 # ---------- memory of what was already posted ----------
-SCRIPT_VERSION = "2026-11-23-v6 (persistent seller cache, block guard, defer fix)"
+SCRIPT_VERSION = "2026-11-23-v8 (v6 + verdict expiry, idle when closed, seen.json untouched in dry-run, no CAPTCHA retry)"
 
 
 def load_seen():
@@ -597,7 +604,8 @@ def load_seen():
 
 
 def save_seen(seen):
-    SEEN_FILE.write_text(json.dumps(seen, ensure_ascii=False, indent=1), encoding="utf-8")
+    out = {k: v for k, v in seen.items() if not (k == "unknown" and not v)}
+    SEEN_FILE.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def fingerprint(title, price):
@@ -871,6 +879,15 @@ def main():
     pending = []     # deals collected this run (up to 20), published after the scan
     scanned, failures, pages_tried = 0, 0, 0
     empty_run, stop_all, stop_checks = 0, False, False
+    # Both platforms closed (quiet hours or daily cap reached): scanning would only
+    # produce deals that are deferred anyway, so do not touch Amazon at all.
+    quiet_now = weekly.in_quiet_hours(datetime.now(tz), s.get("quiet_hours"))
+    tg_closed = quiet_now or ctx["base_tg"] >= s["max_alerts_per_day"]
+    fb_closed = quiet_now or ctx["base_fb"] >= s["fb_max_per_day"]
+    if tg_closed and fb_closed:
+        stop_all = True
+        why = "quiet hours" if quiet_now else "daily caps reached"
+        print(f"[idle] {why} on both platforms -> no Amazon requests this run")
     for source in config["sources"]:
         if len(pending) >= per_run_total or stop_all:
             break
@@ -884,6 +901,12 @@ def main():
             except Exception as e:
                 print(f"[x] {url}: {e}")
                 failures += 1
+                if "CAPTCHA" in str(e):    # a block page counts like an empty page
+                    empty_run += 1
+                    if empty_run >= s["max_consecutive_empty_pages"]:
+                        print(f"[stop] {empty_run} blocked pages in a row -> stopping this run")
+                        stop_all = True
+                        break
                 time.sleep(random.uniform(4, 8))
                 continue
             cards = parse_cards(html)
@@ -978,6 +1001,7 @@ def main():
                                     cands[asin], seller_cache[asin], full,
                                     cats.classify(full or title, categories)["name"],
                                 )
+                                cands[asin]["verified_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
                         except PageBlocked as e:
                             stop_checks = True
                             bump(ctx, "blocked_pages")
@@ -1050,7 +1074,8 @@ def main():
         except Exception:
             print(f"[{name}] ERROR (other platform unaffected):\n" + traceback.format_exc())
 
-    save_seen(seen)
+    if not DRY_RUN:     # dry-run never rewrites seen.json
+        save_seen(seen)
     try:   # collected candidates + counters (separate file; seen.json untouched)
         weekly.flush_scan_state(
             state_file, cands, today, ctx["tg_added"], datetime.now(tz),
