@@ -134,6 +134,7 @@ def merge_candidates(disk, mem):
             for k in ("name", "category", "amazon_sold", "shipped_by_amazon", "seller", "verified"):
                 d[k] = m.get(k)
         d["deferred"] = bool(d.get("deferred") or m.get("deferred"))
+        d["deferred_on"] = max(d.get("deferred_on") or "", m.get("deferred_on") or "") or None
 
 
 def prune_candidates(cands, now_local, keep_days=14):

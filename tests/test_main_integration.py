@@ -163,6 +163,31 @@ class TestDailyCapsIdle(MainBase):
         self.assertNotIn("[idle]", self.out)
 
 
+class TestDeferralExpires(MainBase):
+    def _deferred_state(self):
+        st = self.run_main({"max_alerts_per_day": 3, "fb_max_per_day": 2})
+        d = [a for a, c in st["candidates"].items() if c.get("deferred")]
+        self.assertEqual(len(d), 15)
+        return d
+
+    def test_deferred_today_stays_deferred_today(self):
+        self._deferred_state()
+        big = {"max_alerts_per_day": 50, "fb_max_per_day": 50}
+        st = self.run_main(big)
+        self.assertIn("collected 4", self.out)        # only the never-seen ones, not the 15 deferred
+
+    def test_deferred_yesterday_is_posted_again(self):
+        d = self._deferred_state()
+        sf = self.dir / "bot_state.dryrun.json"
+        state = json.loads(sf.read_text(encoding="utf-8"))
+        for a in d:
+            state["candidates"][a]["deferred_on"] = "2000-01-01"
+        sf.write_text(json.dumps(state), encoding="utf-8")
+        big = {"max_alerts_per_day": 50, "fb_max_per_day": 50}
+        st = self.run_main(big)
+        self.assertGreaterEqual(len(st["posted"]["telegram"]) + len(st["posted"]["facebook"]), 20)
+
+
 class TestEmptyPages(MainBase):
     def test_block_pages_stop_the_run_early_and_are_explained(self):
         blocked = "<html><head><title>Robot Check</title></head><body>captcha</body></html>"

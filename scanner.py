@@ -525,7 +525,7 @@ def send_deal(caption, image_url, card, link, handle):
 
 
 # ---------- memory of what was already posted ----------
-SCRIPT_VERSION = "2026-11-23-v6 (idle when daily caps full or quiet hours; dry-run)"
+SCRIPT_VERSION = "2026-11-23-v7 (deferred deals retry next day; dry-run)"
 
 
 def load_seen():
@@ -636,7 +636,8 @@ def publish_telegram(deals, ctx):
             or ctx["base_tg"] + ctx["tg_added"] >= s["max_alerts_per_day"]
         ):
             d["cand"]["deferred"] = True
-            print(f"[defer] {d['asin']} (telegram): quiet hours / daily cap -> waits for the weekly digest")
+            d["cand"]["deferred_on"] = ctx["today"]   # only blocks it for today
+            print(f"[defer] {d['asin']} (telegram): quiet hours / daily cap -> waits for tomorrow / the weekly digest")
             continue
         caption = build_caption(
             d["title"], d["price"], d["list_price"], d["discount"], d["s_deal"],
@@ -710,7 +711,8 @@ def publish_facebook(deals, ctx):
             or ctx["base_fb"] + ctx["fb_added"] >= s["fb_max_per_day"]
         ):
             d["cand"]["deferred"] = True
-            print(f"[defer] {d['asin']} (facebook): quiet hours / daily cap -> waits for the weekly digest")
+            d["cand"]["deferred_on"] = ctx["today"]   # only blocks it for today
+            print(f"[defer] {d['asin']} (facebook): quiet hours / daily cap -> waits for tomorrow / the weekly digest")
             continue
         text = fbf.format_facebook_post(d, s, affiliate_on(s), disclosure)
         mode = fbp.post_deal_to_facebook(d, text, s, creds, None, fb_dry, print)
@@ -869,8 +871,8 @@ def main():
                 cand = weekly.touch(
                     cands, asin, title, cats.classify(title, categories)["name"], datetime.now(tz)
                 )
-                if cand.get("deferred"):
-                    continue  # over the cap / quiet hours earlier: waits for the weekly digest
+                if cand.get("deferred") and cand.get("deferred_on") == today:
+                    continue  # deferred earlier TODAY (cap / quiet hours); eligible again tomorrow
                 if already_posted(asin, price, seen, st0["posted"], s):
                     continue  # posted on a platform recently (no real new price drop)
                 if len(pending) >= per_run_total or any(p["asin"] == asin for p in pending):
