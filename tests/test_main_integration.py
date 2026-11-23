@@ -94,11 +94,11 @@ class TestMainDryRun(MainBase):
         self.assertNotIn("tag=offershunte0f-21", self.out)
 
     def test_second_run_does_not_repeat_posted_asins(self):
-        self.run_main()
-        st = self.run_main()
+        big = {"max_alerts_per_day": 50, "fb_max_per_day": 50}   # caps not the limiting factor here
+        self.run_main(big)
+        st = self.run_main(big)
         self.assertIn("collected 4", self.out)                     # only the 4 never-posted ones
-        self.assertEqual(self.out.count("[defer]"), 4)             # daily caps (10+10) already used
-        self.assertEqual(len(st["posted"]["telegram"]) + len(st["posted"]["facebook"]), 20)  # no repeats
+        self.assertEqual(len(st["posted"]["telegram"]) + len(st["posted"]["facebook"]), 24)  # no repeats
 
     def test_telegram_failure_does_not_stop_facebook(self):
         self.run_main(tg_fail=True)
@@ -117,17 +117,50 @@ class TestMainDryRun(MainBase):
         self.assertNotIn("FB_APP_SECRET", self.out)
         self.assertNotIn("Bearer", self.out)
 
-    def test_quiet_hours_defer_everything(self):
-        st = self.run_main({"quiet_hours": {"start": "00:00", "end": "23:59"}})
-        self.assertEqual(self.out.count("[defer]"), 20)
+    def test_quiet_hours_skip_scanning_entirely(self):
+        calls = []
+
+        def fetch(url, retries=4):
+            calls.append(url)
+            return fake_fetch(url, retries)
+
+        st = self.run_main({"quiet_hours": {"start": "00:00", "end": "23:59"}}, fetch=fetch)
+        self.assertEqual(calls, [])
+        self.assertIn("[idle] quiet hours", self.out)
         self.assertEqual(st["posted"]["telegram"], {})
         self.assertEqual(st["posted"]["facebook"], {})
-        self.assertTrue(all(st["candidates"][a]["deferred"] for a in list(st["candidates"])[:20]))
 
     def test_daily_caps_per_platform(self):
         st = self.run_main({"max_alerts_per_day": 3, "fb_max_per_day": 2})
         self.assertEqual((len(st["posted"]["telegram"]), len(st["posted"]["facebook"])), (3, 2))
         self.assertEqual(self.out.count("[defer]"), 15)
+
+
+class TestDailyCapsIdle(MainBase):
+    def test_second_run_after_caps_are_full_makes_no_amazon_requests(self):
+        caps = {"max_alerts_per_day": 3, "fb_max_per_day": 2}
+        self.run_main(caps)
+        calls = []
+
+        def fetch(url, retries=4):
+            calls.append(url)
+            return fake_fetch(url, retries)
+
+        self.run_main(caps, fetch=fetch)
+        self.assertEqual(calls, [])
+        self.assertIn("[idle] daily caps reached", self.out)
+
+    def test_one_platform_open_still_scans(self):
+        self.run_main({"max_alerts_per_day": 3, "fb_max_per_day": 2})
+        calls = []
+
+        def fetch(url, retries=4):
+            calls.append(url)
+            return fake_fetch(url, retries)
+
+        self.run_main({"max_alerts_per_day": 3, "fb_max_per_day": 9}, fetch=fetch)
+        self.assertTrue(calls)
+        self.assertNotIn("[idle]", self.out)
 
 
 class TestEmptyPages(MainBase):

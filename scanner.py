@@ -525,7 +525,7 @@ def send_deal(caption, image_url, card, link, handle):
 
 
 # ---------- memory of what was already posted ----------
-SCRIPT_VERSION = "2026-11-22-v5 (facebook + split 10/10 + growth mode, dry-run)"
+SCRIPT_VERSION = "2026-11-23-v6 (idle when daily caps full or quiet hours; dry-run)"
 
 
 def load_seen():
@@ -811,6 +811,15 @@ def main():
     pending = []     # deals collected this run (up to 20), published after the scan
     scanned, failures, pages_tried = 0, 0, 0
     empty_run, stop_all = 0, False
+    # Both platforms closed (quiet hours or daily cap reached): scanning would only
+    # produce deals that are deferred anyway, so do not touch Amazon at all.
+    quiet_now = weekly.in_quiet_hours(datetime.now(tz), s.get("quiet_hours"))
+    tg_closed = quiet_now or ctx["base_tg"] >= s["max_alerts_per_day"]
+    fb_closed = quiet_now or ctx["base_fb"] >= s["fb_max_per_day"]
+    if tg_closed and fb_closed:
+        stop_all = True
+        why = "quiet hours" if quiet_now else "daily caps reached"
+        print(f"[idle] {why} on both platforms -> no Amazon requests this run")
     for source in config["sources"]:
         if len(pending) >= per_run_total or stop_all:
             break
