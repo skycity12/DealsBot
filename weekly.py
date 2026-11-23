@@ -133,7 +133,8 @@ def merge_candidates(disk, mem):
         if m.get("verified"):
             for k in ("name", "category", "amazon_sold", "shipped_by_amazon", "seller", "verified"):
                 d[k] = m.get(k)
-        d["deferred"] = bool(d.get("deferred") or m.get("deferred"))
+        # the newer run wins: sticky-True here made a deferral permanent on disk
+        d["deferred"] = bool(m.get("deferred", d.get("deferred")))
 
 
 def prune_candidates(cands, now_local, keep_days=14):
