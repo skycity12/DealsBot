@@ -188,6 +188,14 @@ class TestDeferralExpires(MainBase):
         self.assertGreaterEqual(len(st["posted"]["telegram"]) + len(st["posted"]["facebook"]), 20)
 
 
+class TestWeeklyDisabled(MainBase):
+    def test_weekly_disabled_in_config_does_nothing(self):
+        self.cfg["weekly"]["enabled"] = False
+        st = self.run_main()
+        self.assertIn("[weekly] status: disabled", self.out)
+        self.assertNotIn("weekly_sim", json.dumps(st) if st.get("weekly_sim") else "")
+
+
 class TestEmptyPages(MainBase):
     def test_block_pages_stop_the_run_early_and_are_explained(self):
         blocked = "<html><head><title>Robot Check</title></head><body>captcha</body></html>"

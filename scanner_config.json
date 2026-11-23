@@ -214,7 +214,7 @@
     }
   ],
   "weekly": {
-    "enabled": true,
+    "enabled": false,
     "weekday": 3,
     "hour": 21,
     "minute": 0,
