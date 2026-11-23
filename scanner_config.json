@@ -19,8 +19,8 @@
     "timezone": "Africa/Cairo",
     "max_alerts_per_day": 10,
     "quiet_hours": {
-      "start": "02:00",
-      "end": "09:00"
+      "start": "00:00",
+      "end": "00:00"
     },
     "growth_mode": true,
     "telegram_per_run": 10,
