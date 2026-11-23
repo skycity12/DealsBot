@@ -6,7 +6,6 @@ import os
 import random
 import re
 import sys
-import tempfile
 import time
 import traceback
 from datetime import datetime, timezone
@@ -673,14 +672,16 @@ def publish_facebook(deals, ctx):
     meta = ctx["st0"].get("facebook", {})
 
     # token health: once per day, before the first post of the day
+    # only a GOOD result is remembered for the day: a bad one is re-checked every
+    # run, so fixing the token takes effect immediately instead of tomorrow
     chk = meta.get("token_check") or {}
-    if chk.get("date") == today and chk.get("valid") is not None:
-        valid = chk["valid"]
+    if chk.get("date") == today and chk.get("valid") is True:
+        valid = True
     else:
         res = fbp.validate_facebook_token(creds, s, fb_dry, print)
         valid = res["valid"]
-        if not fb_dry:   # a simulated check must never be cached as a real one
-            ctx["fb_meta"]["token_check"] = {"date": today, "valid": valid, "error_code": res.get("error_code")}
+        if not fb_dry and valid:   # a simulated or failed check is never cached
+            ctx["fb_meta"]["token_check"] = {"date": today, "valid": True, "error_code": None}
         if res.get("reason"):
             print(f"[facebook] token check: {res['reason']}")
         if res.get("missing_scopes"):
@@ -688,8 +689,8 @@ def publish_facebook(deals, ctx):
 
     def stop_for_bad_token():
         print("[facebook] token invalid/expired -> Facebook posting stopped (Telegram unaffected)")
-        if not fb_dry:
-            ctx["fb_meta"]["token_check"] = {"date": today, "valid": False, "error_code": 190}
+        if not fb_dry:   # forget any cached "good" verdict
+            ctx["fb_meta"]["token_check"] = {"date": today, "valid": None, "error_code": 190}
         if meta.get("alert_date") != today:
             alert_owner("⚠️ توكن صفحة الفيسبوك محتاج يتجدد - نشر الفيسبوك واقف والتليجرام شغال عادي.",
                         not fb_dry)
@@ -710,25 +711,7 @@ def publish_facebook(deals, ctx):
             print(f"[defer] {d['asin']} (facebook): quiet hours / daily cap -> waits for the weekly digest")
             continue
         text = fbf.format_facebook_post(d, s, affiliate_on(s), disclosure)
-        # same branded card as Telegram (skipped in dry-run, like Telegram);
-        # if the card fails, the publisher falls back to the plain product image URL
-        card_path = None
-        if not fb_dry:
-            card = make_card_bytes(
-                d["image"], d["discount"], d["price"], d["list_price"], d["s_deal"]
-            )
-            if card:
-                fd, card_path = tempfile.mkstemp(suffix=".jpg")
-                with os.fdopen(fd, "wb") as f:
-                    f.write(card)
-        try:
-            mode = fbp.post_deal_to_facebook(d, text, s, creds, card_path, fb_dry, print)
-        finally:
-            if card_path:
-                try:
-                    os.unlink(card_path)
-                except OSError:
-                    pass
+        mode = fbp.post_deal_to_facebook(d, text, s, creds, None, fb_dry, print)
         print(f"[post][facebook] {d['asin']} mode={mode} | {d['title'][:60]}")
         if mode == "token_error":
             stop_for_bad_token()
