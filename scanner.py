@@ -577,8 +577,10 @@ def paged(url, page):
 def page_hint(html):
     """Short description of a page that held no products (for the log)."""
     try:
-        title = BeautifulSoup(html, "html.parser").title
-        return (title.get_text(" ", strip=True) if title else "(no title)")[:80]
+        soup = BeautifulSoup(html, "html.parser")
+        title = soup.title.get_text(" ", strip=True) if soup.title else "(no title)"
+        text = soup.get_text(" ", strip=True)[:140]       # what the page actually says
+        return f"{title[:60] or '(no title)'} | text: {text or '(no visible text)'}"
     except Exception:
         return "(unreadable)"
 
