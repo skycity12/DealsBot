@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from PIL import Image, ImageDraw, ImageFont
 
+import amazon_verify
 import botstate
 import categories as cats
 import facebook_formatter as fbf
@@ -114,9 +115,11 @@ def fetch_page(url, retries=4):
             last = f"network error: {e}"
         else:
             if r.status_code == 200:
-                low = r.text.lower()
-                if "captcha" in low and "api-services-support" in low:
-                    last = "CAPTCHA (blocked)"
+                # broad robot-check detection: amazon.eg has several block-page
+                # variants, all served with HTTP 200 (the old two-string test
+                # let most of them through and the parser then saw garbage)
+                if amazon_verify.looks_blocked(r.text):
+                    raise RuntimeError("CAPTCHA (blocked)")   # never retry a block
                 else:
                     return r.text
             else:
@@ -187,25 +190,69 @@ def _seller_name(soup):
     return None
 
 
+class PageBlocked(Exception):
+    """Amazon served a robot-check/captcha page (HTTP 200, fake content)."""
+
+
 def fulfillment_info(html):
     """What the product page says about who SELLS and who SHIPS the item.
     Returns {"amazon_sold": bool|None, "seller": str|None,
-             "shipped_by_amazon": bool|None}. None = couldn't be determined."""
-    soup = BeautifulSoup(html, "html.parser")
+             "shipped_by_amazon": bool|None}. None = couldn't be determined.
+    Raises PageBlocked when Amazon served a robot-check page.
+
+    Two layers: the structured buybox selectors (precise when the layout
+    matches) plus amazon_verify's full-page phrase match, which survives
+    Amazon moving/renaming the buybox containers - the Nov 23 outage: every
+    page fetched fine, no container matched, every deal skipped 'not shipped
+    by Amazon (or unknown)'."""
+    verdict = amazon_verify.classify_product_page(html)
+    if verdict.blocked:
+        raise PageBlocked(verdict.reason)
     amazon_sold = seller_is_amazon(html)
+    soup = BeautifulSoup(html, "html.parser")
     blob = _buybox_blob(soup)
-    if amazon_sold is True:
-        shipped = True            # Amazon sells it, so Amazon ships it
-    elif re.search(SHIPS_FROM + r"[^A-Za-z؀-ۿ]{0,6}" + AMAZON_NAME, blob, re.I):
-        shipped = True
+    if re.search(SHIPS_FROM + r"[^A-Za-z؀-ۿ]{0,6}" + AMAZON_NAME, blob, re.I):
+        shipped = True            # structured buybox says Amazon ships
     elif re.search(SHIPS_FROM, blob, re.I):
         shipped = False           # a "ships from" line exists and it isn't Amazon
+    elif verdict.verdict == "amazon":
+        shipped = True            # full-page phrase match (buybox moved/renamed)
+    elif verdict.verdict == "third_party":
+        shipped = False
     else:
         shipped = None            # no shipping info at all -> unknown
+    if amazon_sold is True:
+        shipped = True            # Amazon sells it, so Amazon ships it
     return {
         "amazon_sold": amazon_sold,
-        "seller": None if amazon_sold else _seller_name(soup),
+        "seller": None if amazon_sold else (_seller_name(soup) or verdict.seller),
         "shipped_by_amazon": shipped,
+    }
+
+
+def cached_fulfillment(cand, s):
+    """Fulfillment verdict already stored in bot_state from an earlier run.
+    Reusing it is what keeps the bot from hammering /dp/ pages every run (the
+    hammering is what gets it blocked). An item is re-checked only after it
+    stops appearing in the search results for `recheck_seller_days`
+    (last_seen stops being refreshed), so a seller change is picked up."""
+    if not cand or not cand.get("verified"):
+        return None
+    if cand.get("shipped_by_amazon") is None:
+        return None
+    # Age of the VERDICT itself (verified_at, written only when the product page
+    # was really fetched). last_seen cannot be used: weekly.touch() refreshes it
+    # just before this call, so the age was always ~0 and a verdict never expired.
+    if not cand.get("verified_at"):
+        # legacy entry from before verified_at existed: start its clock now
+        # (spreads re-checks over the week instead of one big burst)
+        cand["verified_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    if not _recent_iso(cand.get("verified_at"), s.get("recheck_seller_days", 7)):
+        return None
+    return {
+        "amazon_sold": cand.get("amazon_sold"),
+        "seller": cand.get("seller"),
+        "shipped_by_amazon": cand.get("shipped_by_amazon"),
     }
 
 
@@ -525,7 +572,7 @@ def send_deal(caption, image_url, card, link, handle):
 
 
 # ---------- memory of what was already posted ----------
-SCRIPT_VERSION = "2026-11-23-v7 (deferred deals retry next day; dry-run)"
+SCRIPT_VERSION = "2026-11-23-v8 (v6 + verdict expiry, idle when closed, seen.json untouched in dry-run, no CAPTCHA retry)"
 
 
 def load_seen():
@@ -547,14 +594,18 @@ def load_seen():
             "fps": {},
         }
     raw.setdefault("fps", {})
+    raw.setdefault("unknown", {})   # asin -> {"n": strikes, "t": last failure}
     cutoff = now - 60 * 86400  # forget things older than 60 days
     raw["asins"] = {k: v for k, v in raw["asins"].items() if v.get("t", 0) > cutoff}
     raw["fps"] = {k: t for k, t in raw["fps"].items() if t > cutoff}
+    ucut = now - 7 * 86400     # unknown-seller strikes fade after a week
+    raw["unknown"] = {k: v for k, v in raw["unknown"].items() if v.get("t", 0) > ucut}
     return raw
 
 
 def save_seen(seen):
-    SEEN_FILE.write_text(json.dumps(seen, ensure_ascii=False, indent=1), encoding="utf-8")
+    out = {k: v for k, v in seen.items() if not (k == "unknown" and not v)}
+    SEEN_FILE.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def fingerprint(title, price):
@@ -599,6 +650,13 @@ def alert_owner(text, live):
         print(f"[alert] (dry-run / no private chat) would tell the owner: {text}")
 
 
+def bump(ctx, key, n=1):
+    """One counter per skip/outcome, printed as the end-of-run summary so a
+    silent run explains itself in one line."""
+    st = ctx.setdefault("stats", {})
+    st[key] = st.get(key, 0) + n
+
+
 def _recent_iso(ts, days):
     try:
         return (datetime.now(timezone.utc) - datetime.fromisoformat(ts)).days < days
@@ -636,8 +694,9 @@ def publish_telegram(deals, ctx):
             or ctx["base_tg"] + ctx["tg_added"] >= s["max_alerts_per_day"]
         ):
             d["cand"]["deferred"] = True
-            d["cand"]["deferred_on"] = ctx["today"]   # only blocks it for today
-            print(f"[defer] {d['asin']} (telegram): quiet hours / daily cap -> waits for tomorrow / the weekly digest")
+            bump(ctx, "deferred")
+            print(f"[defer] {d['asin']} (telegram): quiet hours / daily cap -> "
+                  f"posts in the first run after 09:00 / under the cap")
             continue
         caption = build_caption(
             d["title"], d["price"], d["list_price"], d["discount"], d["s_deal"],
@@ -650,12 +709,14 @@ def publish_telegram(deals, ctx):
         mode = send_deal(caption, d["image"], card, d["link"], s.get("channel_handle", ""))
         print(f"[post][telegram] {d['asin']} mode={mode} | {d['title'][:60]}")
         if DRY_RUN:   # simulated: remember only in the dry-run log, never in seen.json
+            d["cand"]["deferred"] = False
             ctx["posted_new"]["telegram"][d["asin"]] = weekly._iso(now_l)
             ctx["tg_added"] += 1
             continue
         if mode in ("failed", "none"):
             failures += 1   # not remembered, will retry next run
             continue
+        d["cand"]["deferred"] = False   # posted: no longer waiting on anything
         now = time.time()
         seen["asins"][d["asin"]] = {"price": d["price"], "t": now}
         seen["fps"][d["fp"]] = now
@@ -711,8 +772,9 @@ def publish_facebook(deals, ctx):
             or ctx["base_fb"] + ctx["fb_added"] >= s["fb_max_per_day"]
         ):
             d["cand"]["deferred"] = True
-            d["cand"]["deferred_on"] = ctx["today"]   # only blocks it for today
-            print(f"[defer] {d['asin']} (facebook): quiet hours / daily cap -> waits for tomorrow / the weekly digest")
+            bump(ctx, "deferred")
+            print(f"[defer] {d['asin']} (facebook): quiet hours / daily cap -> "
+                  f"posts in the first run after 09:00 / under the cap")
             continue
         text = fbf.format_facebook_post(d, s, affiliate_on(s), disclosure)
         mode = fbp.post_deal_to_facebook(d, text, s, creds, None, fb_dry, print)
@@ -728,6 +790,8 @@ def publish_facebook(deals, ctx):
             ctx["posted_new"]["facebook"][d["asin"]] = weekly._iso(now_l)
             if mode != "failed":
                 ctx["fb_added"] += 1
+        if mode != "failed":
+            d["cand"]["deferred"] = False   # posted: no longer waiting on anything
         if not fb_dry:
             lo, hi = s["fb_delay_between_posts"]
             time.sleep(random.uniform(lo, hi))
@@ -745,6 +809,8 @@ def main():
         "only_sold_by_amazon": False,        # True = Amazon as seller only
         "require_shipped_by_amazon": True,   # never post items not shipped by Amazon
         "max_product_checks": 80,            # cap product-page lookups per run
+        "recheck_seller_days": 7,            # re-verify fulfillment after this long out of the search results
+        "unknown_strikes_skip": 3,           # stop re-fetching an ASIN whose seller stays unreadable
         "max_consecutive_empty_pages": 4,    # stop the run if Amazon keeps returning empty pages
         "delay_between_posts": [30, 40],
         "fb_delay_between_posts": [5, 10],
@@ -812,7 +878,7 @@ def main():
     per_run_total = s["telegram_per_run"] + s["fb_per_run"]
     pending = []     # deals collected this run (up to 20), published after the scan
     scanned, failures, pages_tried = 0, 0, 0
-    empty_run, stop_all = 0, False
+    empty_run, stop_all, stop_checks = 0, False, False
     # Both platforms closed (quiet hours or daily cap reached): scanning would only
     # produce deals that are deferred anyway, so do not touch Amazon at all.
     quiet_now = weekly.in_quiet_hours(datetime.now(tz), s.get("quiet_hours"))
@@ -835,6 +901,12 @@ def main():
             except Exception as e:
                 print(f"[x] {url}: {e}")
                 failures += 1
+                if "CAPTCHA" in str(e):    # a block page counts like an empty page
+                    empty_run += 1
+                    if empty_run >= s["max_consecutive_empty_pages"]:
+                        print(f"[stop] {empty_run} blocked pages in a row -> stopping this run")
+                        stop_all = True
+                        break
                 time.sleep(random.uniform(4, 8))
                 continue
             cards = parse_cards(html)
@@ -871,8 +943,20 @@ def main():
                 cand = weekly.touch(
                     cands, asin, title, cats.classify(title, categories)["name"], datetime.now(tz)
                 )
-                if cand.get("deferred") and cand.get("deferred_on") == today:
-                    continue  # deferred earlier TODAY (cap / quiet hours); eligible again tomorrow
+                if cand.get("deferred"):
+                    # a quiet-hours / daily-cap deferral is temporary, not a life
+                    # sentence: once posting is allowed again (after 09:00 Cairo,
+                    # or under the cap) the deal is collected normally and the
+                    # caps are re-checked at publish time. Before this fix a
+                    # deferred deal waited for the weekly digest forever.
+                    now_l = datetime.now(tz)
+                    if (
+                        weekly.in_quiet_hours(now_l, s.get("quiet_hours"))
+                        or ctx["base_tg"] + ctx["tg_added"] >= s["max_alerts_per_day"]
+                    ):
+                        bump(ctx, "skip_deferred_waiting")
+                        continue
+                    cand["deferred"] = False
                 if already_posted(asin, price, seen, st0["posted"], s):
                     continue  # posted on a platform recently (no real new price drop)
                 if len(pending) >= per_run_total or any(p["asin"] == asin for p in pending):
@@ -881,7 +965,24 @@ def main():
                 s_deal = s
                 if s["only_sold_by_amazon"] or s["require_shipped_by_amazon"]:
                     if asin not in seller_cache:
+                        # reuse the verdict stored in bot_state: only NEW items cost
+                        # a product-page fetch (was: every item, every run -> block)
+                        cached_info = cached_fulfillment(cands.get(asin), s)
+                        if cached_info is not None:
+                            seller_cache[asin] = cached_info
+                    if asin not in seller_cache:
+                        u = seen["unknown"].get(asin)
+                        if (
+                            u and u.get("n", 0) >= s["unknown_strikes_skip"]
+                            and is_recent(u.get("t", 0), 7)
+                        ):
+                            bump(ctx, "skip_seller_unknown_persistent")
+                            continue  # unreadable page 3+ times: stop hammering it
+                        if stop_checks:
+                            bump(ctx, "skip_checks_stopped")
+                            continue  # Amazon is blocking pages: do not make it worse
                         if checks >= s["max_product_checks"]:
+                            bump(ctx, "skip_check_budget")
                             continue  # check budget spent; try again next run
                         checks += 1
                         try:
@@ -892,17 +993,44 @@ def main():
                             full = page_title(prod_html)
                             if full:
                                 title_cache[asin] = full
+                            if seller_cache[asin]["shipped_by_amazon"] is not None:
+                                seen["unknown"].pop(asin, None)
+                                # persist the verdict (yes AND no) so later runs
+                                # reuse it instead of fetching the page again
+                                weekly.mark_verified(
+                                    cands[asin], seller_cache[asin], full,
+                                    cats.classify(full or title, categories)["name"],
+                                )
+                                cands[asin]["verified_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                        except PageBlocked as e:
+                            stop_checks = True
+                            bump(ctx, "blocked_pages")
+                            print(f"[stop] {asin}: product page blocked ({e}) - "
+                                  f"no more seller checks this run")
+                            seller_cache[asin] = None
                         except Exception as e:
                             print(f"[x] seller check {asin}: {e}")
+                            if "CAPTCHA" in str(e):
+                                stop_checks = True
+                                bump(ctx, "blocked_pages")
                             seller_cache[asin] = None
-                    info = seller_cache[asin]
+                    info = seller_cache.get(asin)
                     if not info:
+                        bump(ctx, "skip_seller_fetch_failed")
                         print(f"[skip] {asin}: seller/shipping unknown")
                         continue
                     if s["only_sold_by_amazon"] and info["amazon_sold"] is not True:
+                        bump(ctx, "skip_not_sold_by_amazon")
                         print(f"[skip] {asin}: not sold by Amazon")
                         continue
                     if s["require_shipped_by_amazon"] and info["shipped_by_amazon"] is not True:
+                        if info["shipped_by_amazon"] is None:
+                            u = seen["unknown"].setdefault(asin, {"n": 0, "t": 0})
+                            u["n"] += 1
+                            u["t"] = time.time()
+                            bump(ctx, "skip_seller_unknown")
+                        else:
+                            bump(ctx, "skip_third_party_shipping")
                         print(f"[skip] {asin}: not shipped by Amazon (or unknown)")
                         continue
                     title = title_cache.get(asin, title)
@@ -946,7 +1074,8 @@ def main():
         except Exception:
             print(f"[{name}] ERROR (other platform unaffected):\n" + traceback.format_exc())
 
-    save_seen(seen)
+    if not DRY_RUN:     # dry-run never rewrites seen.json
+        save_seen(seen)
     try:   # collected candidates + counters (separate file; seen.json untouched)
         weekly.flush_scan_state(
             state_file, cands, today, ctx["tg_added"], datetime.now(tz),
@@ -966,6 +1095,27 @@ def main():
         f"Scanned {scanned} items, collected {len(pending)}, "
         f"telegram {ctx['tg_added']}, facebook {ctx['fb_added']}, {failures} failed pages"
     )
+    # one-line diagnosis: a silent run now says WHY (seller checks, blocks,
+    # defers, caps) instead of leaving you to guess from 2000 skip lines
+    stats = ctx.get("stats", {})
+    if stats:
+        print("run summary: " + ", ".join(f"{k}={v}" for k, v in sorted(stats.items())))
+    if stats.get("blocked_pages"):
+        alert_owner(
+            "⚠️ أمازون بدأ يحظر صفحات المنتجات (captcha) - البوت وقف فحص البائعين "
+            "لباقي التشغيلة. لو تكرر ده، قلل عدد التشغيلات في اليوم.",
+            tg_live or not fb_dry,
+        )
+    if (
+        not DRY_RUN and not pending
+        and (stats.get("skip_seller_unknown") or stats.get("blocked_pages")
+             or stats.get("skip_check_budget"))
+    ):
+        alert_owner(
+            "⚠️ التشغيلة دي من غير أي عرض جديد، والسبب فحص البائع/الشحن مش فلتر "
+            "الخصومات - راجع سطر run summary في اللوج.",
+            tg_live or not fb_dry,
+        )
     if pages_tried and failures == pages_tried:
         sys.exit(1)
 

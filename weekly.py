@@ -131,7 +131,7 @@ def merge_candidates(disk, mem):
         d["days"] = sorted(set(d.get("days", [])) | set(m.get("days", [])))[-14:]
         d["last_seen"] = max(d.get("last_seen", ""), m.get("last_seen", ""))
         if m.get("verified"):
-            for k in ("name", "category", "amazon_sold", "shipped_by_amazon", "seller", "verified"):
+            for k in ("name", "category", "amazon_sold", "shipped_by_amazon", "seller", "verified", "verified_at"):
                 d[k] = m.get(k)
         d["deferred"] = bool(d.get("deferred") or m.get("deferred"))
         d["deferred_on"] = max(d.get("deferred_on") or "", m.get("deferred_on") or "") or None

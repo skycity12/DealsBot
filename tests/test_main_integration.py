@@ -163,29 +163,52 @@ class TestDailyCapsIdle(MainBase):
         self.assertNotIn("[idle]", self.out)
 
 
-class TestDeferralExpires(MainBase):
-    def _deferred_state(self):
+class TestDeferralReleased(MainBase):
+    def test_deferred_deals_are_collected_again_once_the_cap_allows(self):
         st = self.run_main({"max_alerts_per_day": 3, "fb_max_per_day": 2})
-        d = [a for a, c in st["candidates"].items() if c.get("deferred")]
-        self.assertEqual(len(d), 15)
-        return d
+        self.assertEqual(sum(1 for c in st["candidates"].values() if c.get("deferred")), 15)
+        self.run_main({"max_alerts_per_day": 50, "fb_max_per_day": 50})
+        self.assertIn("collected 19", self.out)      # the 15 deferred + the 4 never seen
 
-    def test_deferred_today_stays_deferred_today(self):
-        self._deferred_state()
-        big = {"max_alerts_per_day": 50, "fb_max_per_day": 50}
-        st = self.run_main(big)
-        self.assertIn("collected 4", self.out)        # only the never-seen ones, not the 15 deferred
 
-    def test_deferred_yesterday_is_posted_again(self):
-        d = self._deferred_state()
-        sf = self.dir / "bot_state.dryrun.json"
-        state = json.loads(sf.read_text(encoding="utf-8"))
-        for a in d:
-            state["candidates"][a]["deferred_on"] = "2000-01-01"
-        sf.write_text(json.dumps(state), encoding="utf-8")
-        big = {"max_alerts_per_day": 50, "fb_max_per_day": 50}
-        st = self.run_main(big)
-        self.assertGreaterEqual(len(st["posted"]["telegram"]) + len(st["posted"]["facebook"]), 20)
+class TestVerdictExpiry(unittest.TestCase):
+    S = {"recheck_seller_days": 7}
+    INFO = {"verified": True, "shipped_by_amazon": True, "amazon_sold": False, "seller": "Shop"}
+
+    def _iso(self, days_ago):
+        from datetime import datetime, timedelta, timezone
+        return (datetime.now(timezone.utc) - timedelta(days=days_ago)).isoformat(timespec="seconds")
+
+    def test_fresh_verdict_is_reused(self):
+        c = {**self.INFO, "verified_at": self._iso(1), "last_seen": self._iso(0)}
+        self.assertIsNotNone(scanner.cached_fulfillment(c, self.S))
+
+    def test_old_verdict_expires_even_if_the_item_was_seen_just_now(self):
+        c = {**self.INFO, "verified_at": self._iso(10), "last_seen": self._iso(0)}
+        self.assertIsNone(scanner.cached_fulfillment(c, self.S))
+
+    def test_legacy_entry_gets_a_clock_instead_of_a_refetch_burst(self):
+        c = {**self.INFO, "last_seen": self._iso(0)}
+        self.assertIsNotNone(scanner.cached_fulfillment(c, self.S))
+        self.assertTrue(c["verified_at"])
+
+    def test_unknown_verdict_is_never_cached(self):
+        c = {**self.INFO, "shipped_by_amazon": None, "verified_at": self._iso(0)}
+        self.assertIsNone(scanner.cached_fulfillment(c, self.S))
+
+
+class TestCaptchaNotRetried(unittest.TestCase):
+    def test_one_request_then_raise(self):
+        class R:
+            status_code = 200
+            text = "<html>Robot Check - enter the characters you see below</html>"
+        calls = []
+        with mock.patch.object(scanner.SESSION, "get", side_effect=lambda *a, **k: calls.append(1) or R()), \
+                mock.patch.object(scanner.time, "sleep", lambda *_: None):
+            with self.assertRaises(RuntimeError) as cm:
+                scanner.fetch_page("https://www.amazon.eg/s?k=x")
+        self.assertEqual(len(calls), 1)
+        self.assertIn("CAPTCHA", str(cm.exception))
 
 
 class TestWeeklyDisabled(MainBase):
