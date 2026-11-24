@@ -56,7 +56,7 @@ def _error_of(resp):
 
 
 def post_deal_to_facebook(deal, text, settings, creds=None, image_path=None,
-                          dry_run=True, log=print):
+                          dry_run=True, log=print, image_bytes=None):
     """Publish ONE deal. Returns 'dry-run' | 'photo' | 'feed' | 'token_error' | 'failed'."""
     image_url = deal.get("image")
     if dry_run:
@@ -80,8 +80,11 @@ def post_deal_to_facebook(deal, text, settings, creds=None, image_path=None,
             log(f"[facebook] {path} network error: {scrub(e, creds)}")
             return None
 
-    if image_path or image_url:
-        if image_path:
+    if image_bytes or image_path or image_url:
+        if image_bytes:
+            r = call("photos", {"caption": text},
+                     files={"source": ("deal.jpg", image_bytes, "image/jpeg")})
+        elif image_path:
             with open(image_path, "rb") as f:
                 r = call("photos", {"caption": text}, files={"source": f})
         else:

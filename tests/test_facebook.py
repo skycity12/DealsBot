@@ -215,3 +215,22 @@ class TestGrowthModeLinks(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMirrorAndCard(unittest.TestCase):
+    def test_html_to_plain(self):
+        h = "🔥 <b>خصم قوي</b>\n❌ كان: <s>1,000 جنيه</s>\n🛍 <b>A &amp; B</b>"
+        self.assertEqual(fbf.telegram_html_to_plain(h), "🔥 خصم قوي\n❌ كان: 1,000 جنيه\n🛍 A & B")
+
+    def test_disclosure_only_when_links_carry_the_tag(self):
+        self.assertNotIn("DISC", fbf.mirror_telegram_post("x", False, "DISC"))
+        self.assertTrue(fbf.mirror_telegram_post("x", True, "DISC").endswith("DISC"))
+
+    def test_card_bytes_are_uploaded_as_the_photo(self):
+        with mock.patch("requests.post", return_value=FakeResp(True, {"id": "1"})) as m:
+            mode = fbp.post_deal_to_facebook(deal(1), "txt", S, CREDS, dry_run=False,
+                                             log=lambda *_: None, image_bytes=b"JPEGDATA")
+        self.assertEqual(mode, "photo")
+        kw = m.call_args.kwargs
+        self.assertTrue(m.call_args.args[0].endswith("/photos"))
+        self.assertEqual(kw["files"]["source"], ("deal.jpg", b"JPEGDATA", "image/jpeg"))

@@ -354,7 +354,7 @@ def seller_lines(seller):
     ]
 
 
-def build_caption(title, price, list_price, discount, s, tags, seller=None, category=None):
+def build_caption(title, price, list_price, discount, s, tags, seller=None, category=None, buy_link=None):
     t = html_escape(title if len(title) <= 130 else title[:127].rstrip() + "...", quote=False)
     saved = list_price - price
     lines = [
@@ -366,6 +366,7 @@ def build_caption(title, price, list_price, discount, s, tags, seller=None, cate
         f"✅ بقى: <b>{price:,.0f} جنيه</b>",
         f"📉 خصم <b>{discount:.0f}%</b>  ·  💸 وفّرت <b>{saved:,.0f} جنيه</b>",
         *seller_lines(seller),
+        *(["", f"🛒 اشتري الآن: {buy_link}"] if buy_link else []),   # Facebook has no button
         "",
         tags,
         "",
@@ -776,8 +777,21 @@ def publish_facebook(deals, ctx):
             print(f"[defer] {d['asin']} (facebook): quiet hours / daily cap -> "
                   f"posts in the first run after 09:00 / under the cap")
             continue
-        text = fbf.format_facebook_post(d, s, affiliate_on(s), disclosure)
-        mode = fbp.post_deal_to_facebook(d, text, s, creds, None, fb_dry, print)
+        card = None
+        if s.get("facebook_mirror_telegram", True):
+            # identical to the Telegram post (same caption lines, prices included,
+            # same branded card); only HTML is stripped and the buy link is a line
+            caption = build_caption(
+                d["title"], d["price"], d["list_price"], d["discount"], d["s_deal"],
+                tags_for(d["source"], s), d["info"], d["cat"], buy_link=d["link"],
+            )
+            text = fbf.mirror_telegram_post(caption, affiliate_on(s), disclosure)
+            if not fb_dry:   # dry-run: no image download at all
+                card = make_card_bytes(d["image"], d["discount"], d["price"],
+                                       d["list_price"], d["s_deal"])
+        else:
+            text = fbf.format_facebook_post(d, s, affiliate_on(s), disclosure)
+        mode = fbp.post_deal_to_facebook(d, text, s, creds, None, fb_dry, print, image_bytes=card)
         print(f"[post][facebook] {d['asin']} mode={mode} | {d['title'][:60]}")
         if mode == "token_error":
             stop_for_bad_token()
@@ -817,7 +831,8 @@ def main():
         "dry_run": True,            # GLOBAL LOCK: nothing is published until false
         "weekly_live": False,       # weekly digest/pin/poll; also needs dry_run=false
         "growth_mode": True,        # links WITHOUT the affiliate tag (tag stays in config)
-        "facebook_show_prices": False,   # scraped prices are not shown on Facebook
+        "facebook_show_prices": False,   # only used when facebook_mirror_telegram is false
+        "facebook_mirror_telegram": True,  # Facebook post = the Telegram post (prices included)
         "fb_graph_version": "v27.0",
         "fb_max_per_day": 10,
         "timezone": "Africa/Cairo",

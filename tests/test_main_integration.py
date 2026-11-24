@@ -211,6 +211,37 @@ class TestCaptchaNotRetried(unittest.TestCase):
         self.assertIn("CAPTCHA", str(cm.exception))
 
 
+class TestFacebookMirrorsTelegram(MainBase):
+    def _fb_block(self):
+        i = self.out.index("[facebook][dry-run] would post")
+        return self.out[i:].split("\n[post][facebook]")[0]
+
+    def test_same_lines_prices_included_no_html(self):
+        self.run_main()
+        fb, tg = self._fb_block(), self.out
+        for needle in ("❌ كان:", "✅ بقى:", "📉 خصم", "💸 وفّرت", "🏪 البائع:", "📦 الشحن من أمازون",
+                       "🛒 اشتري الآن: https://www.amazon.eg/dp/B0RUN", "⏱️ السعر وقت النشر"):
+            self.assertIn(needle, fb)
+            self.assertIn(needle.split(":")[0], tg)
+        self.assertNotIn("<b>", fb)
+        self.assertNotIn("<s>", fb)
+        self.assertNotIn("لقطة جديدة", fb)          # the old Facebook-only hook is gone
+        self.assertIn("image=", fb)
+
+    def test_old_format_still_available_behind_the_switch(self):
+        self.run_main({"facebook_mirror_telegram": False})
+        fb = self._fb_block()
+        self.assertTrue(any(h in fb for h in ("لقطة جديدة", "لفت نظرنا", "اكتشاف النهاردة")))
+        self.assertNotIn("❌ كان:", fb)             # prices hidden again (facebook_show_prices=false)
+
+    def test_telegram_caption_is_unchanged_without_buy_link(self):
+        s = {"suspicious_discount": 90, "channel_footer": "F"}
+        a = scanner.build_caption("T", 700, 1000, 30, s, "#x", None, {"hashtag": "#c"})
+        b = scanner.build_caption("T", 700, 1000, 30, s, "#x", None, {"hashtag": "#c"}, buy_link=None)
+        self.assertEqual(a, b)
+        self.assertNotIn("اشتري الآن", a)
+
+
 class TestWeeklyDisabled(MainBase):
     def test_weekly_disabled_in_config_does_nothing(self):
         self.cfg["weekly"]["enabled"] = False

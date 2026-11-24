@@ -4,6 +4,7 @@
 Growth mode: no price / discount / saving by default (facebook_show_prices=false),
 because those numbers are scraped from Amazon pages. Flip the setting only when
 the prices come from an approved source (e.g. the Product Advertising API)."""
+import re
 from html import unescape
 
 HOOKS = (
@@ -48,3 +49,22 @@ def format_facebook_post(deal, settings, affiliate_on, disclosure):
     if affiliate_on and disclosure:
         lines += ["", disclosure]      # only when the links really carry the tag
     return "\n".join(lines)
+
+
+_TAG = re.compile(r"</?(?:b|i|u|s|a|code|pre|em|strong)(?:\s[^>]*)?>", re.I)
+
+
+def telegram_html_to_plain(caption_html):
+    """The Telegram caption (HTML: <b>, <s>, &amp;) as plain text for Facebook, which
+    does not render HTML. Same lines, same order, same emoji and numbers."""
+    return unescape(_TAG.sub("", caption_html)).strip()
+
+
+def mirror_telegram_post(caption_html, affiliate_on, disclosure):
+    """Facebook post identical to the Telegram one (the caption already carries the
+    buy link, because Facebook has no inline button). The disclosure line is added
+    only when the links really carry the affiliate tag."""
+    text = telegram_html_to_plain(caption_html)
+    if affiliate_on and disclosure:
+        text += "\n\n" + disclosure
+    return text
