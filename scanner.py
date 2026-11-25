@@ -29,6 +29,7 @@ import botstate
 import categories as cats
 import facebook_formatter as fbf
 import facebook_publisher as fbp
+import promos
 import splitter
 import weekly
 
@@ -341,7 +342,7 @@ def headline(discount, s):
     return "💰 <b>عرض حلو</b>"
 
 
-def seller_lines(seller):
+def seller_lines(seller, old_price_warning=True):
     """Caption lines saying clearly who sells the item. seller=None keeps the
     old behaviour (sold by Amazon)."""
     if not seller or seller.get("amazon_sold"):
@@ -350,22 +351,36 @@ def seller_lines(seller):
     return [
         f"🏪 البائع: <b>{name}</b> (مش أمازون)",
         "📦 الشحن من أمازون",
-        "⚠️ تنبيه: ده مش أمازون اللي بايع القطعة، والسعر القديم من عند البائع وممكن يكون مبالغ فيه",
+        *(["⚠️ تنبيه: ده مش أمازون اللي بايع القطعة، والسعر القديم من عند البائع وممكن يكون مبالغ فيه"]
+          if old_price_warning else []),   # a bundle deal has no old price to warn about
     ]
 
 
-def build_caption(title, price, list_price, discount, s, tags, seller=None, category=None, buy_link=None):
+def build_caption(title, price, list_price, discount, s, tags, seller=None, category=None,
+                  buy_link=None, promo=None):
     t = html_escape(title if len(title) <= 130 else title[:127].rstrip() + "...", quote=False)
-    saved = list_price - price
+    if list_price is None:        # promotion-only deal: no price discount to show
+        head = "🎁 <b>عرض باقة</b>"
+        price_lines = [f"✅ السعر: <b>{price:,.0f} جنيه</b>"]
+    else:
+        head = headline(discount, s)
+        price_lines = [
+            f"❌ كان: <s>{list_price:,.0f} جنيه</s>",
+            f"✅ بقى: <b>{price:,.0f} جنيه</b>",
+            f"📉 خصم <b>{discount:.0f}%</b>  ·  💸 وفّرت <b>{list_price - price:,.0f} جنيه</b>",
+        ]
+    promo_lines = []
+    if promo:
+        promo_lines = [f"🎁 العرض: <b>{html_escape(promo['label'], quote=False)}</b>"
+                       f" (يعني خصم حوالي {promo['effective']:.0f}%)"]
     lines = [
-        headline(discount, s),
+        head,
         "",
         f"🛍 <b>{t}</b>",
         "",
-        f"❌ كان: <s>{list_price:,.0f} جنيه</s>",
-        f"✅ بقى: <b>{price:,.0f} جنيه</b>",
-        f"📉 خصم <b>{discount:.0f}%</b>  ·  💸 وفّرت <b>{saved:,.0f} جنيه</b>",
-        *seller_lines(seller),
+        *price_lines,
+        *promo_lines,
+        *seller_lines(seller, list_price is not None),
         *(["", f"🛒 اشتري الآن: {buy_link}"] if buy_link else []),   # Facebook has no button
         "",
         tags,
@@ -703,10 +718,11 @@ def publish_telegram(deals, ctx):
             continue
         caption = build_caption(
             d["title"], d["price"], d["list_price"], d["discount"], d["s_deal"],
-            tags_for(d["source"], s), d["info"], d["cat"],
+            tags_for(d["source"], s), d["info"], d["cat"], promo=d.get("promo"),
         )
-        # dry-run: no image download/upload at all
-        card = None if DRY_RUN else make_card_bytes(
+        # dry-run: no image download/upload at all; a promotion-only deal has no
+        # price discount to draw, so it goes out with the product photo instead
+        card = None if (DRY_RUN or d.get("promo_only")) else make_card_bytes(
             d["image"], d["discount"], d["price"], d["list_price"], d["s_deal"]
         )
         mode = send_deal(caption, d["image"], card, d["link"], s.get("channel_handle", ""))
@@ -786,9 +802,10 @@ def publish_facebook(deals, ctx):
             caption = build_caption(
                 d["title"], d["price"], d["list_price"], d["discount"], d["s_deal"],
                 tags_for(d["source"], s), d["info"], d["cat"], buy_link=d["link"],
+                promo=d.get("promo"),
             )
             text = fbf.mirror_telegram_post(caption, affiliate_on(s), disclosure)
-            if not fb_dry:   # dry-run: no image download at all
+            if not fb_dry and not d.get("promo_only"):   # dry-run: no image download at all
                 card = make_card_bytes(d["image"], d["discount"], d["price"],
                                        d["list_price"], d["s_deal"])
         else:
@@ -834,6 +851,8 @@ def main():
         "weekly_live": False,       # weekly digest/pin/poll; also needs dry_run=false
         "growth_mode": True,        # links WITHOUT the affiliate tag (tag stays in config)
         "facebook_show_prices": False,   # only used when facebook_mirror_telegram is false
+        "promo_deals": "log",              # off | log (detect + log only) | on (publish them)
+        "promo_min_effective_discount": 25,  # buy1get1=50, buy2get1=33, buy1+50%off 2nd=25
         "facebook_mirror_telegram": True,  # Facebook post = the Telegram post (prices included)
         "fb_graph_version": "v27.0",
         "fb_max_per_day": 10,
@@ -896,6 +915,7 @@ def main():
     pending = []     # deals collected this run (up to 20), published after the scan
     scanned, failures, pages_tried = 0, 0, 0
     empty_run, stop_all, stop_checks = 0, False, False
+    promo_logged = set()
     # Both platforms closed (quiet hours or daily cap reached): scanning would only
     # produce deals that are deferred anyway, so do not touch Amazon at all.
     quiet_now = weekly.in_quiet_hours(datetime.now(tz), s.get("quiet_hours"))
@@ -952,11 +972,24 @@ def main():
                 f"[ok] {url} -> {len(cards)} items, "
                 f"{len(with_list)} with discount, best {best}%"
             )
+            promo_map = promos.card_promos(html) if s["promo_deals"] != "off" else {}
+            for pa, pr in promo_map.items():
+                if pa not in promo_logged:
+                    promo_logged.add(pa)
+                    bump(ctx, "promo_seen")
+                    print(f"[promo] {pa}: {pr['kind']} effective={pr['effective']:g}% "
+                          f"| text={pr['text']!r} | mode={s['promo_deals']}")
             for asin, title, price, list_price, image in cards:
                 scanned += 1
+                promo = promo_map.get(asin) if s["promo_deals"] == "on" else None
+                if promo and promo["effective"] < s["promo_min_effective_discount"]:
+                    promo = None
                 discount = is_deal(price, list_price, s)
+                promo_only = False
                 if discount is None:
-                    continue
+                    if promo is None:
+                        continue
+                    promo_only, discount = True, promo["effective"]   # a bundle deal, no list price
                 cand = weekly.touch(
                     cands, asin, title, cats.classify(title, categories)["name"], datetime.now(tz)
                 )
@@ -1056,10 +1089,11 @@ def main():
                     if live and abs(live - price) / price > 0.03:
                         print(f"[price] {asin}: page {live:g} != search {price:g} -> using page price")
                         price = live
-                        discount = is_deal(price, list_price, s)
-                        if discount is None:
-                            print(f"[skip] {asin}: no longer a deal at the page price")
-                            continue
+                        if not promo_only:
+                            discount = is_deal(price, list_price, s)
+                            if discount is None:
+                                print(f"[skip] {asin}: no longer a deal at the page price")
+                                continue
                     if info["amazon_sold"] is not True:
                         # third-party list prices are set by the seller and often
                         # inflated: never label them "possible price error"
@@ -1076,6 +1110,7 @@ def main():
                     "discount": discount, "image": image, "link": product_link(asin, s),
                     "cat": cat, "info": info, "source": source, "fp": fp,
                     "s_deal": s_deal, "cand": cand,
+                    "promo": promo, "promo_only": promo_only,
                 })
             time.sleep(random.uniform(4, 9))
 
