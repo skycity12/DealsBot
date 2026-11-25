@@ -308,6 +308,30 @@ class TestAffiliateOptIn(MainBase):
         self.assertIn("بعض الروابط روابط تسويق بالعمولة", self.out)
         self.assertEqual((self.dir / "seen.json").read_bytes(), self.seen_before)
 
+    def test_tag_on_every_link_and_disclosure_once_per_post_on_both_platforms(self):
+        self.run_main({"growth_mode": False})
+        tg_posts = self.out.split("[dry-run] Would post (nothing sent):\n")[1:]
+        fb_posts = [x.split("\n[post][facebook]")[0] for x in self.out.split("[facebook][dry-run] would post")[1:]]
+        self.assertTrue(tg_posts and fb_posts)
+        for post in tg_posts[:3] + fb_posts[:3]:
+            self.assertEqual(post.count("As an Amazon Associate"), 1, post)
+        for post in fb_posts[:3]:
+            self.assertIn("/dp/B0RUN", post)
+            self.assertRegex(post, r"/dp/B0RUN\d+\?tag=offershunte0f-21")
+
+    def test_growth_mode_on_no_tag_no_disclosure_anywhere(self):
+        self.run_main()
+        self.assertNotIn("tag=", self.out)
+        self.assertNotIn("As an Amazon Associate", self.out)
+
+    def test_telegram_caption_with_disclosure_fits_the_1024_limit(self):
+        s = {"suspicious_discount": 90, "channel_footer": "📢 اشترك في «صيّاد العروض» عشان توصلك أقوى العروض أول بأول",
+             "affiliate_tag": "offershunte0f-21", "growth_mode": False}
+        info = {"amazon_sold": False, "seller": "X" * 40, "shipped_by_amazon": True}
+        cap = scanner.build_caption("T" * 130, 700, 2800, 75, s, "#اير_فراير #اجهزة_منزلية #عروض_أمازون",
+                                    info, {"hashtag": "#أجهزة_منزلية"}, buy_link="https://www.amazon.eg/dp/B0RUN000018?tag=offershunte0f-21")
+        self.assertLess(len(cap), 1024)
+
 
 class TestMixedModeKeepsProdStateClean(MainBase):
     def test_fb_dry_run_does_not_leave_simulated_posts_in_prod_state(self):

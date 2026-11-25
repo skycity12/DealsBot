@@ -372,6 +372,8 @@ def build_caption(title, price, list_price, discount, s, tags, seller=None, cate
         "",
         "⏱️ السعر وقت النشر وممكن يتغير في أي لحظة",
     ]
+    if affiliate_on(s):   # links carry the tag -> the post must say so (never in growth mode)
+        lines += ["", html_escape(s.get("affiliate_disclosure") or DEFAULT_DISCLOSURE, quote=False)]
     if s.get("channel_footer"):
         lines += ["", html_escape(s["channel_footer"], quote=False)]
     if category:

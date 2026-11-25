@@ -65,6 +65,6 @@ def mirror_telegram_post(caption_html, affiliate_on, disclosure):
     buy link, because Facebook has no inline button). The disclosure line is added
     only when the links really carry the affiliate tag."""
     text = telegram_html_to_plain(caption_html)
-    if affiliate_on and disclosure:
+    if affiliate_on and disclosure and disclosure.strip() not in text:   # Telegram caption may carry it already
         text += "\n\n" + disclosure
     return text
