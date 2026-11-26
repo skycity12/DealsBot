@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_main_integration import MainBase  # noqa: E402
 
-M = {"split_mode": "mirror", "max_alerts_per_day": 100, "fb_max_per_day": 100}
+M = {"split_mode": "mirror", "max_alerts_per_day": 100, "fb_max_per_day": 100, "fb_per_run": 10}
 
 
 class TestMirrorMode(MainBase):
@@ -20,6 +20,13 @@ class TestMirrorMode(MainBase):
         self.assertEqual(sorted(tg), sorted(fb))                        # same deals on both
         self.assertIn("mirror mode: 10 deals -> Telegram", self.out)
         self.assertEqual(len(st["posted"]["facebook"]), 10)
+
+    def test_facebook_gets_only_fb_per_run_of_them_best_first(self):
+        self.run_main({**M, "telegram_per_run": 10, "fb_per_run": 3})
+        tg, fb = self.posted("telegram"), self.posted("facebook")
+        self.assertEqual((len(tg), len(fb)), (10, 3))
+        self.assertEqual(fb, tg[:3])             # Telegram publishes best-discount first
+        self.assertIn("up to 3 of the same ones", self.out)
 
     def test_facebook_daily_cap_limits_only_facebook(self):
         self.run_main({**M, "telegram_per_run": 10, "fb_max_per_day": 4})

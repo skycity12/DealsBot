@@ -869,7 +869,7 @@ def main():
         "weekly_live": False,       # weekly digest/pin/poll; also needs dry_run=false
         "growth_mode": True,        # links WITHOUT the affiliate tag (tag stays in config)
         "facebook_show_prices": False,   # only used when facebook_mirror_telegram is false
-        "split_mode": "split",             # split = deals divided between platforms; mirror = every Telegram post also goes to Facebook
+        "split_mode": "split",             # split = deals divided between platforms; mirror = Facebook repeats Telegram's posts (up to fb_per_run per run)
         "promo_deals": "log",              # off | log (detect + log only) | on (publish them)
         "promo_min_effective_discount": 25,  # buy1get1=50, buy2get1=33, buy1+50%off 2nd=25
         "facebook_mirror_telegram": True,    # Facebook post = the Telegram post (prices included)
@@ -1144,13 +1144,14 @@ def main():
                 seen_a.add(d["asin"])
                 tg_list.append(d)
         tg_list = tg_list[: s["telegram_per_run"]]
-        print(f"[split] mirror mode: {len(tg_list)} deals -> Telegram, and the same ones to Facebook")
+        print(f"[split] mirror mode: {len(tg_list)} deals -> Telegram, and up to "
+              f"{s['fb_per_run']} of the same ones (best discount first) -> Facebook")
         try:
             publish_telegram(tg_list, ctx)
         except Exception:
             print("[telegram] ERROR (facebook unaffected):\n" + traceback.format_exc())
-        try:    # Facebook gets exactly what Telegram really published in this run
-            publish_facebook(list(ctx["tg_published"]), ctx)
+        try:    # Facebook gets up to fb_per_run of what Telegram really published in this run
+            publish_facebook(list(ctx["tg_published"])[: s["fb_per_run"]], ctx)
         except Exception:
             print("[facebook] ERROR (telegram unaffected):\n" + traceback.format_exc())
     else:
