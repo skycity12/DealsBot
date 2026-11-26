@@ -859,8 +859,8 @@ def main():
         "facebook_show_prices": False,   # only used when facebook_mirror_telegram is false
         "promo_deals": "log",              # off | log (detect + log only) | on (publish them)
         "promo_min_effective_discount": 25,  # buy1get1=50, buy2get1=33, buy1+50%off 2nd=25
-        "facebook_mirror_telegram": True,
-        "facebook_promote_channel": True,   # Facebook posts also carry the Telegram channel link  # Facebook post = the Telegram post (prices included)
+        "facebook_mirror_telegram": True,    # Facebook post = the Telegram post (prices included)
+        "facebook_promote_channel": True,    # Facebook posts also carry the Telegram channel link
         "fb_graph_version": "v27.0",
         "fb_max_per_day": 10,
         "timezone": "Africa/Cairo",
