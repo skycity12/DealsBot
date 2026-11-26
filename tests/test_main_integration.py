@@ -228,6 +228,19 @@ class TestFacebookMirrorsTelegram(MainBase):
         self.assertNotIn("لقطة جديدة", fb)          # the old Facebook-only hook is gone
         self.assertIn("image=", fb)
 
+    def test_facebook_promotes_the_telegram_channel_telegram_does_not(self):
+        self.run_main()
+        fb = self._fb_block()
+        link = "https://t.me/OffersHunter2026"
+        self.assertEqual(fb.count(link), 1)
+        self.assertIn("👉 " + link, fb)
+        tg = self.out.split("[dry-run] Would post (nothing sent):\n")[1].split("\n[post][telegram]")[0]
+        self.assertNotIn("t.me/", tg)
+
+    def test_channel_promotion_can_be_switched_off(self):
+        self.run_main({"facebook_promote_channel": False})
+        self.assertNotIn("t.me/", self.out)
+
     def test_old_format_still_available_behind_the_switch(self):
         self.run_main({"facebook_mirror_telegram": False})
         fb = self._fb_block()
