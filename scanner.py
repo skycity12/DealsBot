@@ -357,7 +357,7 @@ def seller_lines(seller, old_price_warning=True):
 
 
 def build_caption(title, price, list_price, discount, s, tags, seller=None, category=None,
-                  buy_link=None, promo=None):
+                  buy_link=None, promo=None, channel_link=None):
     t = html_escape(title if len(title) <= 130 else title[:127].rstrip() + "...", quote=False)
     if list_price is None:        # promotion-only deal: no price discount to show
         head = "🎁 <b>عرض باقة</b>"
@@ -391,6 +391,10 @@ def build_caption(title, price, list_price, discount, s, tags, seller=None, cate
         lines += ["", html_escape(s.get("affiliate_disclosure") or DEFAULT_DISCLOSURE, quote=False)]
     if s.get("channel_footer"):
         lines += ["", html_escape(s["channel_footer"], quote=False)]
+        if channel_link:
+            lines += [f"👉 {channel_link}"]
+    elif channel_link:
+        lines += ["", f"📢 قناتنا على تليجرام: {channel_link}"]
     if category:
         lines += ["", category["hashtag"]]   # category hashtag = last, visible line
     return "\n".join(lines)
@@ -796,13 +800,15 @@ def publish_facebook(deals, ctx):
                   f"posts in the first run after 09:00 / under the cap")
             continue
         card = None
+        handle = (s.get("channel_handle") or "").lstrip("@")
+        channel_link = f"https://t.me/{handle}" if handle and s.get("facebook_promote_channel", True) else None
         if s.get("facebook_mirror_telegram", True):
             # identical to the Telegram post (same caption lines, prices included,
             # same branded card); only HTML is stripped and the buy link is a line
             caption = build_caption(
                 d["title"], d["price"], d["list_price"], d["discount"], d["s_deal"],
                 tags_for(d["source"], s), d["info"], d["cat"], buy_link=d["link"],
-                promo=d.get("promo"),
+                promo=d.get("promo"), channel_link=channel_link,
             )
             text = fbf.mirror_telegram_post(caption, affiliate_on(s), disclosure)
             if not fb_dry and not d.get("promo_only"):   # dry-run: no image download at all
@@ -853,7 +859,8 @@ def main():
         "facebook_show_prices": False,   # only used when facebook_mirror_telegram is false
         "promo_deals": "log",              # off | log (detect + log only) | on (publish them)
         "promo_min_effective_discount": 25,  # buy1get1=50, buy2get1=33, buy1+50%off 2nd=25
-        "facebook_mirror_telegram": True,  # Facebook post = the Telegram post (prices included)
+        "facebook_mirror_telegram": True,    # Facebook post = the Telegram post (prices included)
+        "facebook_promote_channel": True,    # Facebook posts also carry the Telegram channel link
         "fb_graph_version": "v27.0",
         "fb_max_per_day": 10,
         "timezone": "Africa/Cairo",

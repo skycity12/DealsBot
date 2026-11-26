@@ -8,8 +8,9 @@ def split_deals(deals, n_telegram=10, n_facebook=10, log=print):
       alternately (1 -> Telegram, 2 -> Facebook, 3 -> Telegram ...) so neither
       platform gets all the best ones;
     - at most n_telegram + n_facebook deals are used;
-    - fewer deals than that: split them evenly (Telegram gets the odd one) and
-      log it. Nothing is topped up from previously posted deals.
+    - fewer deals than that: Facebook gets min(its quota, half of the deals), Telegram
+      the rest (equal quotas = an even split, Telegram gets the odd one), and it is
+      logged. Nothing is topped up from previously posted deals.
     """
     seen, uniq = set(), []
     for d in sorted(deals, key=lambda d: (-d.get("discount", 0), d["asin"])):
@@ -21,8 +22,11 @@ def split_deals(deals, n_telegram=10, n_facebook=10, log=print):
     total = n_telegram + n_facebook
     uniq = uniq[:total]
     if len(uniq) < total:
-        n_telegram = (len(uniq) + 1) // 2
-        n_facebook = len(uniq) - n_telegram
+        # Facebook takes its own quota but never more than half of what was found
+        # (with equal quotas this is the old even split, Telegram gets the odd one);
+        # with quotas 10/1 it takes 1 and Telegram keeps the rest.
+        n_facebook = min(n_facebook, len(uniq) // 2)
+        n_telegram = len(uniq) - n_facebook
         log(f"[split] only {len(uniq)} deals (< {total}): "
             f"{n_telegram} Telegram / {n_facebook} Facebook")
 
