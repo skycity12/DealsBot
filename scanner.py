@@ -697,7 +697,8 @@ def already_posted(asin, price, seen, posted, s):
         and price > prev["price"] * (1 - s["repost_min_drop"])
     ):
         return True
-    for platform in ("telegram", "facebook"):
+    platforms = ("telegram",) if s.get("split_mode") == "mirror" else ("telegram", "facebook")
+    for platform in platforms:
         if _recent_iso(posted.get(platform, {}).get(asin), s["repost_after_days"]):
             return True
     return False
@@ -735,6 +736,7 @@ def publish_telegram(deals, ctx):
             d["cand"]["deferred"] = False
             ctx["posted_new"]["telegram"][d["asin"]] = weekly._iso(now_l)
             ctx["tg_added"] += 1
+            ctx["tg_published"].append(d)
             continue
         if mode in ("failed", "none"):
             failures += 1   # not remembered, will retry next run
@@ -745,6 +747,7 @@ def publish_telegram(deals, ctx):
         seen["fps"][d["fp"]] = now
         save_seen(seen)     # remember immediately, even if the run dies later
         ctx["tg_added"] += 1
+        ctx["tg_published"].append(d)
         lo, hi = s["delay_between_posts"]
         wait = random.uniform(lo, hi)
         print(f"   waiting {wait:.0f}s before the next one")
@@ -794,10 +797,19 @@ def publish_facebook(deals, ctx):
             weekly.in_quiet_hours(now_l, s.get("quiet_hours"))
             or ctx["base_fb"] + ctx["fb_added"] >= s["fb_max_per_day"]
         ):
+            if s.get("split_mode") == "mirror":
+                bump(ctx, "fb_skipped_cap")
+                print(f"[skip] {d['asin']} (facebook): daily cap / quiet hours (mirror mode)")
+                continue
             d["cand"]["deferred"] = True
             bump(ctx, "deferred")
             print(f"[defer] {d['asin']} (facebook): quiet hours / daily cap -> "
                   f"posts in the first run after 09:00 / under the cap")
+            continue
+        if s.get("split_mode") == "mirror" and _recent_iso(
+                ctx["st0"]["posted"].get("facebook", {}).get(d["asin"]), s["repost_after_days"]):
+            bump(ctx, "fb_already_posted")
+            print(f"[skip] {d['asin']} (facebook): already posted there recently")
             continue
         card = None
         handle = (s.get("channel_handle") or "").lstrip("@")
@@ -857,6 +869,7 @@ def main():
         "weekly_live": False,       # weekly digest/pin/poll; also needs dry_run=false
         "growth_mode": True,        # links WITHOUT the affiliate tag (tag stays in config)
         "facebook_show_prices": False,   # only used when facebook_mirror_telegram is false
+        "split_mode": "split",             # split = deals divided between platforms; mirror = Facebook repeats Telegram's posts (up to fb_per_run per run)
         "promo_deals": "log",              # off | log (detect + log only) | on (publish them)
         "promo_min_effective_discount": 25,  # buy1get1=50, buy2get1=33, buy1+50%off 2nd=25
         "facebook_mirror_telegram": True,    # Facebook post = the Telegram post (prices included)
@@ -913,12 +926,13 @@ def main():
         "base_tg": weekly.daily_count(st0, today),
         "base_fb": weekly.daily_count(st0, today, "facebook"),
         "record_sim": not any_live,
-        "tg_added": 0, "fb_added": 0,
+        "tg_added": 0, "fb_added": 0, "tg_published": [],
         "posted_new": {"telegram": {}, "facebook": {}}, "fb_meta": {},
     }
     print(f"loaded memory: {len(seen['asins'])} products already posted")
 
-    per_run_total = s["telegram_per_run"] + s["fb_per_run"]
+    mirror = s["split_mode"] == "mirror"
+    per_run_total = s["telegram_per_run"] if mirror else s["telegram_per_run"] + s["fb_per_run"]
     pending = []     # deals collected this run (up to 20), published after the scan
     scanned, failures, pages_tried = 0, 0, 0
     empty_run, stop_all, stop_checks = 0, False, False
@@ -928,7 +942,7 @@ def main():
     quiet_now = weekly.in_quiet_hours(datetime.now(tz), s.get("quiet_hours"))
     tg_closed = quiet_now or ctx["base_tg"] >= s["max_alerts_per_day"]
     fb_closed = quiet_now or ctx["base_fb"] >= s["fb_max_per_day"]
-    if tg_closed and fb_closed:
+    if tg_closed and (fb_closed or mirror):   # mirror: Facebook only follows Telegram
         stop_all = True
         why = "quiet hours" if quiet_now else "daily caps reached"
         print(f"[idle] {why} on both platforms -> no Amazon requests this run")
@@ -1123,15 +1137,33 @@ def main():
 
     # ---- split (no overlap), then one publisher per platform: a failure in one
     # never stops the other, and a failed deal is never moved to the other platform
-    tg_list, fb_list = splitter.split_deals(
-        pending, s["telegram_per_run"], s["fb_per_run"]
-    )
-    print(f"[split] collected {len(pending)} deals -> Telegram {len(tg_list)} / Facebook {len(fb_list)}")
-    for name, fn, lst in (("telegram", publish_telegram, tg_list), ("facebook", publish_facebook, fb_list)):
+    if mirror:
+        tg_list, seen_a = [], set()
+        for d in sorted(pending, key=lambda d: (-d.get("discount", 0), d["asin"])):
+            if d["asin"] not in seen_a:
+                seen_a.add(d["asin"])
+                tg_list.append(d)
+        tg_list = tg_list[: s["telegram_per_run"]]
+        print(f"[split] mirror mode: {len(tg_list)} deals -> Telegram, and up to "
+              f"{s['fb_per_run']} of the same ones (best discount first) -> Facebook")
         try:
-            fn(lst, ctx)
+            publish_telegram(tg_list, ctx)
         except Exception:
-            print(f"[{name}] ERROR (other platform unaffected):\n" + traceback.format_exc())
+            print("[telegram] ERROR (facebook unaffected):\n" + traceback.format_exc())
+        try:    # Facebook gets up to fb_per_run of what Telegram really published in this run
+            publish_facebook(list(ctx["tg_published"])[: s["fb_per_run"]], ctx)
+        except Exception:
+            print("[facebook] ERROR (telegram unaffected):\n" + traceback.format_exc())
+    else:
+        tg_list, fb_list = splitter.split_deals(
+            pending, s["telegram_per_run"], s["fb_per_run"]
+        )
+        print(f"[split] collected {len(pending)} deals -> Telegram {len(tg_list)} / Facebook {len(fb_list)}")
+        for name, fn, lst in (("telegram", publish_telegram, tg_list), ("facebook", publish_facebook, fb_list)):
+            try:
+                fn(lst, ctx)
+            except Exception:
+                print(f"[{name}] ERROR (other platform unaffected):\n" + traceback.format_exc())
 
     if not DRY_RUN:     # dry-run never rewrites seen.json
         save_seen(seen)
