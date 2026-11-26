@@ -148,6 +148,15 @@ def validate_facebook_token(creds, settings, dry_run=True, log=print):
         # anything else keep going; the post itself returns 190 if the token is bad.
         code = err.get("code")
         msg = scrub(err.get("message", f"HTTP {r.status_code}"), creds)
+        if code in AUTH_ERROR_CODES and "signature" in msg.lower():
+            # "Invalid OAuth access token signature" comes from the APP access token
+            # (APP_ID|APP_SECRET) used for this check: FB_APP_ID / FB_APP_SECRET are
+            # wrong or belong to another app. It says nothing about the PAGE token,
+            # and posting does not use the app secret, so do not stop posting for it.
+            return {"valid": True, "error_code": code, "simulated": False, "missing_scopes": [],
+                    "reason": "debug_token rejected FB_APP_ID/FB_APP_SECRET (wrong value or a "
+                              "different app than the page token). The page token itself was "
+                              "not checked; posting continues. Fix the two secrets."}
         if code in AUTH_ERROR_CODES:
             return {"valid": False, "error_code": code, "simulated": False,
                     "missing_scopes": [], "reason": msg}

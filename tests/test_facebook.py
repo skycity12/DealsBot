@@ -250,3 +250,21 @@ class TestSplitUnequalQuotas(unittest.TestCase):
     def test_ten_to_one_keeps_telegram_fed(self):
         self.assertEqual([self._split(n, 10, 1) for n in (1, 2, 3, 4, 6, 10, 11, 15)],
                          [(1, 0), (1, 1), (2, 1), (3, 1), (5, 1), (9, 1), (10, 1), (10, 1)])
+
+
+class TestAppCredentialSignatureError(unittest.TestCase):
+    def test_signature_error_means_wrong_app_secret_not_a_bad_page_token(self):
+        resp = FakeResp(False, {"error": {"message": "Invalid OAuth access token signature.",
+                                          "type": "OAuthException", "code": 190}}, status=400)
+        with mock.patch("requests.get", return_value=resp):
+            r = fbp.validate_facebook_token(CREDS, S, False, lambda *_: None)
+        self.assertTrue(r["valid"])                       # posting is not stopped for it
+        self.assertEqual(r["error_code"], 190)
+        self.assertIn("FB_APP_SECRET", r["reason"])
+
+    def test_a_real_expired_page_token_is_still_invalid(self):
+        resp = FakeResp(False, {"error": {"message": "Error validating access token: Session has expired",
+                                          "code": 190}}, status=400)
+        with mock.patch("requests.get", return_value=resp):
+            r = fbp.validate_facebook_token(CREDS, S, False, lambda *_: None)
+        self.assertFalse(r["valid"])
