@@ -234,3 +234,19 @@ class TestMirrorAndCard(unittest.TestCase):
         kw = m.call_args.kwargs
         self.assertTrue(m.call_args.args[0].endswith("/photos"))
         self.assertEqual(kw["files"]["source"], ("deal.jpg", b"JPEGDATA", "image/jpeg"))
+
+
+class TestSplitUnequalQuotas(unittest.TestCase):
+    def _split(self, n, nt, nf):
+        deals = [{"asin": f"A{i}", "discount": 50 - i} for i in range(n)]
+        tg, fb = splitter.split_deals(deals, nt, nf, log=lambda *_: None)
+        self.assertFalse({d["asin"] for d in tg} & {d["asin"] for d in fb})   # never on both
+        return len(tg), len(fb)
+
+    def test_equal_quotas_keep_the_even_split(self):
+        self.assertEqual([self._split(n, 10, 10) for n in (1, 2, 3, 4, 11)],
+                         [(1, 0), (1, 1), (2, 1), (2, 2), (6, 5)])
+
+    def test_ten_to_one_keeps_telegram_fed(self):
+        self.assertEqual([self._split(n, 10, 1) for n in (1, 2, 3, 4, 6, 10, 11, 15)],
+                         [(1, 0), (1, 1), (2, 1), (3, 1), (5, 1), (9, 1), (10, 1), (10, 1)])
