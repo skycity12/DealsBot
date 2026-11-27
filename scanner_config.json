@@ -22,7 +22,7 @@
       "start": "00:00",
       "end": "00:00"
     },
-    "growth_mode": true,
+    "growth_mode": false,
     "telegram_per_run": 10,
     "fb_per_run": 3,
     "split_mode": "mirror",
