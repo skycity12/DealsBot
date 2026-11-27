@@ -93,3 +93,19 @@ class TestPromoModes(MainBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSkipEvidence(unittest.TestCase):
+    def test_skip_reason_shows_what_the_buybox_said(self):
+        import scanner
+        third = ('<div id="merchant-info">Ships from Fast Shop Sold by Fast Shop</div>'
+                 '<a id="sellerProfileTriggerId">Fast Shop</a>' + "<p>" + "x" * 2100 + "</p>")
+        info = scanner.fulfillment_info(third)
+        self.assertIs(info["shipped_by_amazon"], False)
+        self.assertIn("Ships from Fast Shop", info["evidence"])
+        fba = ('<div id="merchant-info">Ships from Amazon Sold by Fast Shop</div>'
+               '<a id="sellerProfileTriggerId">Fast Shop</a>' + "<p>" + "x" * 2100 + "</p>")
+        info = scanner.fulfillment_info(fba)
+        self.assertIs(info["shipped_by_amazon"], True)          # third-party seller, shipped by Amazon: allowed
+        self.assertIs(info["amazon_sold"], False)
+        self.assertEqual(info["seller"], "Fast Shop")

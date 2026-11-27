@@ -224,10 +224,15 @@ def fulfillment_info(html):
         shipped = None            # no shipping info at all -> unknown
     if amazon_sold is True:
         shipped = True            # Amazon sells it, so Amazon ships it
+    # what the page actually said, for the log: a skip must be explainable
+    m = re.search(SHIPS_FROM + r"[^\n]{0,40}", blob, re.I)
+    evidence = (f"buybox: '{m.group(0).strip()[:60]}'" if m
+                else f"no ships-from line in the buybox; page check: {verdict.verdict} ({verdict.reason})")
     return {
         "amazon_sold": amazon_sold,
         "seller": None if amazon_sold else (_seller_name(soup) or verdict.seller),
         "shipped_by_amazon": shipped,
+        "evidence": evidence,
     }
 
 
@@ -1102,7 +1107,8 @@ def main():
                             bump(ctx, "skip_seller_unknown")
                         else:
                             bump(ctx, "skip_third_party_shipping")
-                        print(f"[skip] {asin}: not shipped by Amazon (or unknown)")
+                        print(f"[skip] {asin}: not shipped by Amazon (or unknown) | "
+                              f"{info.get('evidence') or 'cached verdict from an earlier run'}")
                         continue
                     title = title_cache.get(asin, title)
                     # the product page price is the truth; the search page can be stale
