@@ -34,7 +34,7 @@
     "facebook_show_prices": true,
     "fb_graph_version": "v27.0",
     "fb_hashtags": "#عروض_امازون #خصومات",
-    "affiliate_disclosure": "💡 بعض الروابط روابط تسويق بالعمولة. As an Amazon Associate I earn from qualifying purchases.",
+    "affiliate_disclosure": "",
     "recheck_seller_days": 7,
     "unknown_strikes_skip": 3
   },
