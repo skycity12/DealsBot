@@ -109,3 +109,11 @@ class TestSkipEvidence(unittest.TestCase):
         self.assertIs(info["shipped_by_amazon"], True)          # third-party seller, shipped by Amazon: allowed
         self.assertIs(info["amazon_sold"], False)
         self.assertEqual(info["seller"], "Fast Shop")
+
+
+class TestDisclosureOptOut(unittest.TestCase):
+    def test_blank_config_removes_line_missing_key_keeps_default(self):
+        import scanner
+        self.assertEqual(scanner.disclosure_text({"affiliate_disclosure": ""}), "")
+        self.assertEqual(scanner.disclosure_text({}), scanner.DEFAULT_DISCLOSURE)
+        self.assertEqual(scanner.disclosure_text({"affiliate_disclosure": "x"}), "x")

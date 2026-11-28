@@ -361,6 +361,14 @@ def seller_lines(seller, old_price_warning=True):
     ]
 
 
+def disclosure_text(s):
+    """The disclosure line. A missing key means the default; an explicitly empty
+    "affiliate_disclosure" in the config means the owner chose to show none."""
+    if "affiliate_disclosure" in s:
+        return (s.get("affiliate_disclosure") or "").strip()
+    return DEFAULT_DISCLOSURE
+
+
 def build_caption(title, price, list_price, discount, s, tags, seller=None, category=None,
                   buy_link=None, promo=None, channel_link=None):
     t = html_escape(title if len(title) <= 130 else title[:127].rstrip() + "...", quote=False)
@@ -392,8 +400,9 @@ def build_caption(title, price, list_price, discount, s, tags, seller=None, cate
         "",
         "⏱️ السعر وقت النشر وممكن يتغير في أي لحظة",
     ]
-    if affiliate_on(s):   # links carry the tag -> the post must say so (never in growth mode)
-        lines += ["", html_escape(s.get("affiliate_disclosure") or DEFAULT_DISCLOSURE, quote=False)]
+    disc = disclosure_text(s)
+    if affiliate_on(s) and disc:   # links carry the tag -> the post says so (owner may blank it in config)
+        lines += ["", html_escape(disc, quote=False)]
     if s.get("channel_footer"):
         lines += ["", html_escape(s["channel_footer"], quote=False)]
         if channel_link:
@@ -795,7 +804,7 @@ def publish_facebook(deals, ctx):
         stop_for_bad_token()
         return
 
-    disclosure = s.get("affiliate_disclosure") or DEFAULT_DISCLOSURE
+    disclosure = disclosure_text(s)
     for d in deals:
         now_l = datetime.now(tz)
         if (
